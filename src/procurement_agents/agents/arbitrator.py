@@ -69,8 +69,13 @@ class ArbitratorAgent(BaseAgent):
         fn = _RULES.get(phase_value)
         if fn is None:
             # 未知/辅助阶段：默认放行
-            return ArbitrationRecord(phase=PhaseName(phase_value), verdict=VerdictAction.PROCEED,
-                                     summary=f"{phase_value}：无可配置的仲裁规则，默认放行")
+            return ArbitrationRecord(
+                phase=PhaseName(phase_value),
+                verdict=VerdictAction.PROCEED,
+                quality_score=100,
+                checks=[],
+                summary=f"{phase_value}：无可配置的仲裁规则，默认放行",
+            )
 
         r = _Reporter()
         fn(r, artifact, ctx)
@@ -179,8 +184,8 @@ def _comparison(r: _Reporter, art: Dict[str, Any], ctx: Dict[str, Any]) -> None:
         r.add("定标建议", CheckLevel.FAIL, "未给出推荐成交对象")
         return
     # 跨阶段预警：推荐对象为高风险供应商时，必须人确认/交由合规拦截
-    rec_sid = rec.get("supplier_id")
-    reg = supplier_registry().get(rec_sid, {})
+    rec_sid = str(rec.get("supplier_id"))
+    reg = supplier_registry().get(rec_sid, {}) if rec_sid else {}
     if reg.get("risk_level") == "高":
         r.add("高风险定标预警", CheckLevel.WARN,
               f"比价推荐 {rec.get('supplier_name')} 属高风险供应商(如处罚/授权问题)，"

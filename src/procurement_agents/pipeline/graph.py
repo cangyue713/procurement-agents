@@ -288,7 +288,9 @@ def build_pipeline(config: AppConfig | None = None, provider: LLMProvider | None
         from procurement_agents.llm import create_provider
         provider = create_provider(cfg)
 
-    builder = StateGraph(WorkflowState)
+    # StateGraph 的泛型参数对 TypedDict 状态 + 普通 Callable 节点推断不友好，
+    # 图构建期放宽为 Any（运行期 schema 仍为 WorkflowState）
+    builder: Any = StateGraph(WorkflowState)
 
     # 1) 业务节点
     biz = _build_business_nodes(cfg, provider)

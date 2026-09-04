@@ -95,5 +95,7 @@ class AppConfig:
 
 def _only(data: Dict[str, Any], dc_type: type) -> Dict[str, Any]:
     """过滤出 dataclass 声明过的字段，避免未知键报错。"""
-    fields = {f for f in dc_type.__dataclass_fields__}
+    # __dataclass_fields__ 是 dataclass 的运行时实现细节，经 getattr 访问以兼容类型检查
+    dc_fields = getattr(dc_type, "__dataclass_fields__", {})
+    fields = {f for f in dc_fields}
     return {k: v for k, v in data.items() if k in fields}

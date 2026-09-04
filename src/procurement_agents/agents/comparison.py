@@ -34,7 +34,7 @@ class ComparisonAgent(BaseAgent):
         requirement = inputs["requirement"]
         candidates: List[Dict[str, Any]] = inputs["candidates"]
         req_items = requirement.get("items") or []
-        priced = []
+        priced: List[Dict[str, Any]] = []
         for cand in candidates:
             sid = str(cand.get("supplier_id"))
             lines, total, missing = catalog_lines(str(cand.get("price_items") or ""), req_items)
@@ -113,7 +113,7 @@ class ComparisonAgent(BaseAgent):
 
         return ComparisonArtifact(
             method=f"价格{W_PRICE:.0%} + 交期{W_DELIVERY:.0%} + 历史绩效{W_PERF:.0%}（价目×需求数量自动计价）",
-            rows=[r.model_dump(mode="json") for r in rows],
+            rows=rows,
             lowest_bidder_id=lowest.supplier_id,
             recommended=Recommendation(
                 supplier_id=winner.supplier_id,

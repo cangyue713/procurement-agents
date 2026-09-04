@@ -16,6 +16,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from procurement_agents.domain.enums import SupplierRiskLevel
 from procurement_agents.domain.models import (
     ExcludedSupplier,
     SupplierCandidate,
@@ -246,6 +247,14 @@ def supplier_by_name() -> Dict[str, str]:
 RISK_PENALTY = {"低": 0, "中": 8, "高": 20}
 
 
+def _risk_enum(value: Any) -> SupplierRiskLevel:
+    """把主数据中的风险等级字符串安全映射为枚举（非法值回退为低风险）。"""
+    try:
+        return SupplierRiskLevel(str(value or SupplierRiskLevel.LOW.value))
+    except ValueError:
+        return SupplierRiskLevel.LOW
+
+
 def score_supplier(info: Dict[str, Any], category: str) -> float:
     """计算某供应商对某品类的推荐分(0-100)。所有扣分均给出 reasons。"""
     perf = float(info.get("performance_rating", 3.0)) / 5.0 * 100
@@ -330,7 +339,7 @@ def recommend_suppliers(
             matched_category=category,
             score=score_supplier(info, category),
             reasons=reasons,
-            risk_level=str(info.get("risk_level", "低")),
+            risk_level=_risk_enum(info.get("risk_level")),
             certifications=info.get("certifications", []),
             performance_rating=float(info.get("performance_rating", 0)),
             contact=info.get("contact", ""),
@@ -341,4 +350,9 @@ def recommend_suppliers(
             payment_terms=info.get("payment_terms") or "货到验收合格后 30 天电汇",
         ))
 
-    return SupplierShortlistArtifact(category=category, candidates=candidates, excluded=excluded)
+    return SupplierShortlistArtifact(
+        category=category,
+        candidates=candidates,
+        excluded=excluded,
+        rank_method="品类匹配 + 绩效 + 认证 + 风险扣分",
+    )

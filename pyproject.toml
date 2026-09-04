@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "procurement-agents"
+version = "0.1.0"
+description = "供应链/采购流程自动化多Agent项目：需求理解→策略判定→供应商推荐→报价解析→比价→合规→合同草稿，仲裁Agent全程监控"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "langgraph>=0.6.0",
+    "pydantic>=2.5.0",
+    "PyYAML>=6.0",
+    "python-dotenv>=1.0.0",
+    "openai>=1.30.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+procurement_agents = ["knowledge/data/*.json", "knowledge/data/*.csv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"

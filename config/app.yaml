@@ -1,0 +1,34 @@
+# 供应链/采购流程自动化 多Agent项目 —— 全局配置
+app:
+  name: procurement-agents
+  language: zh-CN
+  default_currency: CNY
+
+# ------- LLM Provider 接入 -------
+# provider: mock        = 内置规则引擎，离线可跑、结果确定（默认）
+#           deepseek    = DeepSeek 官方 OpenAI 兼容接口
+#           openai_compat = 任意 OpenAI 兼容接口(可指向 Ollama/vLLM/中转)
+llm:
+  provider: mock
+  model: deepseek-chat
+  base_url: https://api.deepseek.com/v1
+  api_key_env: DEEPSEEK_API_KEY   # 密钥从同名环境变量读取（见 .env.example）
+  temperature: 0.0
+  timeout_seconds: 90
+
+# ------- LangGraph 工作流 -------
+workflow:
+  max_agent_retries: 2        # 单个业务节点失败的最大重试次数
+  agent_timeout_seconds: 60   # 单个节点执行超时(秒)
+  auto_approve_holds: true    # 仲裁裁决 hold(需人审) 是否自动放行并留痕；false 则停在人审点
+  checkpointer: memory        # memory=内存断点(支持人审暂停/恢复) | none=单次直跑
+  shortlist_size: 3           # 供应商短名单候选数
+  tracing: true               # 是否在 outputs/ 输出结构化运行追踪
+  output_dir: outputs
+
+# ------- 采购业务规则阈值 -------
+rules:
+  direct_purchase_max: 50000       # 预算 <= 5万 -> 直接采购
+  tender_threshold: 1000000        # 预算 > 100万 -> 进入招标区间
+  invite_bid_min: 3                # 邀请招标/询比价 至少邀请家数
+  max_delivery_days: 365

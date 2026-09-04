@@ -1,0 +1,9 @@
+# 供应链/采购流程自动化 多Agent项目 —— 运行依赖
+langgraph>=0.6.0
+pydantic>=2.5.0
+PyYAML>=6.0
+python-dotenv>=1.0.0
+openai>=1.30.0        # 仅 DeepSeek/OpenAI 兼容 Provider 需要；Mock 模式可不启用
+
+# 开发/测试
+pytest>=8.0.0

@@ -1,0 +1,16 @@
+# 环境与依赖
+.venv/
+.pylibs/
+.wheels/
+*.egg-info/
+.env
+
+# 运行产物
+outputs/
+*.log
+
+# 临时
+.tmp/
+__pycache__/
+*.py[cod]
+.pytest_cache/

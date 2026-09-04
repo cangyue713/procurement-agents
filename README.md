@@ -81,8 +81,11 @@
 | **结构化领域模型** | pydantic v2 单据：需求/策略/短名单(含价目)/比价/合规/合同/裁决/审批 |
 | **可插拔模型** | `LLMProvider` 协议；`mock`（中文规则引擎，离线确定）默认，`deepseek`/`openai_compat` 一键切换，Agent 代码零改动 |
 | **重试/超时** | 节点护栏：子线程超时 + 失败重试（有界），耗尽后升级问题并置 `failed` |
-| **人审点(HITL)** | hold → 审批节点；MemorySaver checkpointer 支撑暂停/恢复语义 |
-| **追踪审计** | 每个节点运行记录 + 全程仲裁记录 + 审批记录 + 问题升级 → `outputs/report_*.md` 与 `trace_*.json` |
+| **人审点(HITL)** | 仲裁 hold → 审批节点：`auto_approve` 自动放行留痕；关闭后流程真正**挂起等待**（`needs_input`），审批决策落库后经断点续跑，进程重启可恢复 |
+| **持久化断点** | checkpointer 可选 `memory` / **`sqlite`（SqliteSaver，跨进程可恢复）**，人审暂停/恢复语义由 `interrupt/resume` 支撑 |
+| **追踪审计** | 每个节点运行记录 + 全程仲裁记录 + 审批记录（落 DB）+ 问题升级 → `outputs/report_*.md` 与 `trace_*.json` |
+| **服务化** | Runner 外包 FastAPI：提交/查询/审批三接口；多 case 隔离，决策走 DB（无进程级注册表） |
+| **金额精度** | 全链路 `Decimal`（状态内为精度无损字符串），违约金费率收敛为单一常量 |
 | **规则可配置** | `config/app.yaml`：直采/招标阈值、重试次数、审批策略等 |
 | **数据资产化** | 供应商主数据为 CSV（Excel 可直接维护，价格与介绍同源），黑名单 JSON，评分透明可追溯 |
 | **测试体系** | 单测（模型引擎/各 Agent/仲裁规则/护栏）+ 端到端（LangGraph 全链路） |
@@ -143,6 +146,25 @@ print(result.markdown_report())                  # 完整报告（含仲裁裁�
 ```
 换业务只需改 `suppliers.csv`（增删供应商及其价目）与需求 `txt`，Agent 代码零改动。
 
+### 6. 以服务方式运行（P1 服务化）
+```bash
+# sqlite 断点持久化（跨进程可恢复）+ 挂起等待人工审批
+python -X utf8 -m uvicorn procurement_agents.web_api:app --port 8000
+```
+```bash
+# 提交需求（auto_approve=false 时仲裁 hold 会挂起等待审批）
+curl -X POST http://127.0.0.1:8000/procurements \
+  -H 'Content-Type: application/json' \
+  -d '{"request_text": "紧急采购 10 台工业级交换机，具体预算与交期待定。", "case_id": "PC-API-001"}'
+# 查询 case
+curl http://127.0.0.1:8000/procurements/PC-API-001
+# 人工审批（批准/拒绝）
+curl -X POST http://127.0.0.1:8000/procurements/PC-API-001/approve \
+  -H 'Content-Type: application/json' \
+  -d '{"approved": true, "approver": "王经理", "comment": "预算内批准"}'
+```
+也可在代码中使用 `ProcurementService`（`submit/resume/view/list_cases`），审批决策落 sqlite 审计表。
+
 ## 六、目录结构
 
 ```
@@ -151,17 +173,20 @@ agent/
 ├── tools/                     # 环境引导：fetch_wheels(离线抓包) / stage_wheels(就地解压)
 ├── src/procurement_agents/
 │   ├── config.py              # 配置装载(.env + yaml)
-│   ├── domain/                # 领域层：枚举 + pydantic 单据模型
+│   ├── domain/                # 领域层：枚举 + pydantic 单据模型 + money(Decimal 工具)
 │   ├── llm/                   # 模型层：Provider 协议 + Mock 规则引擎 + OpenAI 兼容实现
 │   ├── knowledge/             # 知识层：suppliers.csv(介绍+价目) / 黑名单 / 策略与价目工具
 │   ├── agents/                # Agent 层：6 业务 Agent + 仲裁 Agent
 │   ├── pipeline/              # 编排层：State / PhaseNode 护栏 / LangGraph 图 / 追踪
-│   └── runner.py              # 高层 API
+│   ├── runner.py              # 高层 API（run / resume / get_state，支持挂起语义）
+│   ├── service.py             # 编排服务（submit/view/resume/list_cases + DB 同步）
+│   ├── store.py               # case/审批决策 sqlite 存储（决策走 DB）
+│   └── web_api.py             # FastAPI 三接口（提交/查询/审批）
 ├── templates/                 # PO 与合同草稿模板
 ├── examples/
 │   ├── input/request.txt      # 演示采购需求（由项目读取）
 │   ├── demo_case.py / run_demo.py / compare_providers.py
-├── tests/                     # 单测 + 端到端测试
+├── tests/                     # 单测 + 端到端 + 服务化回归测试
 └── outputs/                   # 运行产物（报告/追踪/合同草稿）
 ```
 
@@ -172,8 +197,8 @@ agent/
 | `llm.provider` | `mock` | `mock` / `deepseek` / `openai_compat` |
 | `llm.api_key_env` | `DEEPSEEK_API_KEY` | 密钥来源环境变量 |
 | `workflow.max_agent_retries` | `2` | 节点失败重试上限 |
-| `workflow.auto_approve_holds` | `true` | hold 自动放行留痕；`false` 走人审 |
-| `workflow.checkpointer` | `memory` | 内存断点（人审恢复语义） |
+| `workflow.auto_approve_holds` | `true` | hold 自动放行留痕；`false` 走人审（挂起等待，需服务化续跑） |
+| `workflow.checkpointer` | `memory` | `memory` / `sqlite`（SqliteSaver 持久化，进程重启可恢复）/ `none` |
 | `workflow.shortlist_size` | `3` | 供应商短名单候选数 |
 | `rules.direct_purchase_max` | `50000` | ≤ 此金额直接采购 |
 | `rules.tender_threshold` | `1000000` | 超此金额进招标区间 |
@@ -190,8 +215,9 @@ agent/
   或把 CSV 换成语料/目录服务后扩展 `load_suppliers` 一个实现。
 - **需求文本来源**：Runner 支持 `request_text`（字符串）与 `request_file`（txt 路径）两种入口，兼容 API/文件输入。
 - **更细的合规引擎**：在 `agents/compliance.py` 的 C 编号规则中追加（C7、C8…），仲裁与合同自动消费其结论。
-- **持久化与服务化**：checkpointer 换 `SqliteSaver`/`PostgresSaver`；Runner 包一层 REST；
-  hold 挂起对接审批工作流（返回 `needs_input`，审批后从断点续跑）。
+- **服务化与持久化（P1 已落地）**：`ProcurementService` + `web_api.py` 三接口；checkpointer 配 `sqlite`
+  （`workflow.sqlite_path`）后断点跨进程持久，`resume` 从人审挂起点续跑；
+  `POST /procurements/{case_id}/approve` 审批决策落 DB 后驱动续跑。
 
 ## 九、已知边界（诚实说明）
 
@@ -199,7 +225,9 @@ agent/
   代码路径与协议完全一致（价格数据不经过 LLM，只做需求解析）。
 - **价目匹配是规则匹配**：`match_price` 面向结构化价目；跨品类/别名严重不一致时需人工维护价目描述，
   仲裁会以"价目覆盖"提示兜底。
-- **金额使用 float**：演示/原型足够；生产建议迁移 Decimal 并接入财务系统。
+- **金额全链路 Decimal**：领域模型/比价/合规/合同/报告金额一律 `Decimal`（JSON 状态中为精度无损字符串，
+  读回用 `procurement_agents.domain.money.to_decimal`，展示用 `fmt_money`）；违约金日费率收敛为单一常量
+  `PENALTY_DAILY_RATE`（0.05%/日），杜绝 float 误差与费率不一致。
 - **目录式采购定位**：本流程面向库内有价目的现货/目录采购；招投标法定程序、单件定制询价等场景
   建议沿用带询价环节的流程变体。
 - 所有供应商、企业、人名均为**虚构演示数据**，不代表任何真实主体。

@@ -23,7 +23,8 @@ class WorkflowConfig:
     max_agent_retries: int = 2            # 单个 Agent 节点失败最大重试次数
     agent_timeout_seconds: float = 60.0   # 单个 Agent 节点超时
     auto_approve_holds: bool = True       # 仲裁 hold(人审) 是否自动放行；False 则停在审批点
-    checkpointer: str = "memory"          # memory | none
+    checkpointer: str = "memory"          # memory | sqlite | none
+    sqlite_path: str = "outputs/cases.sqlite"  # checkpointer=sqlite 时的持久化文件
     shortlist_size: int = 3               # 供应商短名单规模
     tracing: bool = True                  # 是否产出结构化运行追踪
     output_dir: str = "outputs"           # 追踪/产物输出目录

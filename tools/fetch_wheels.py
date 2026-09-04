@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 INDEX = "https://pypi.org/pypi/{name}/json"
-TOP_LEVEL = ["langgraph", "pydantic", "PyYAML", "python-dotenv", "openai", "pytest"]
+TOP_LEVEL = ["langgraph", "pydantic", "PyYAML", "python-dotenv", "openai", "fastapi", "uvicorn", "httpx", "pytest"]
 WHEEL_DIR = Path(__file__).resolve().parents[1] / ".wheels"
 
 # 版本钉扎：为规避新一代 httpx2/h11 依赖宇宙与本机 pip 网络问题，
@@ -28,11 +28,18 @@ PINS: Dict[str, str] = {
     "langchain-core": "0.3.86",
     "langsmith": "0.3.45",
     "langgraph-checkpoint": "2.1.2",
+    "langgraph-checkpoint-sqlite": "2.0.11",
     "langgraph-prebuilt": "0.6.5",
     "langgraph-sdk": "0.2.15",
     "pydantic": "2.13.5",
     "pydantic-core": "2.46.5",   # pydantic 精确配对要求 ==2.46.5
     "openai": "1.109.1",          # 1.x 老栈(httpx<1)，与 langsmith 0.3 世代兼容
+    "fastapi": "0.141.1",
+    "starlette": "1.6.0",
+    "uvicorn": "0.52.4",
+    "httpx": "0.28.1",
+    "httpcore": "1.0.9",
+    "aiosqlite": "0.22.1",
 }
 
 # 平台判定：优先本机 cp 版本精确匹配，其次 abi3 通用二进制，再次纯 Python

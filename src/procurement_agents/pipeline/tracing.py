@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
+from procurement_agents.domain.money import fmt_money
+
 
 def save_trace(state: Dict[str, Any], output_dir: str | Path) -> Path:
     """保存全量运行追踪（JSON）。"""
@@ -80,7 +82,11 @@ def render_markdown(state: Dict[str, Any]) -> str:
         lines.append("| 名次 | 供应商 | 总额(元) | 交期(天) | 价格分 | 交期分 | 绩效分 | 综合分 |")
         lines.append("|---|---|---|---|---|---|---|---|")
         for r in sorted(rows, key=lambda x: x.get("rank", 99)):
-            lines.append(f"| {r.get('rank')} | {r.get('supplier_name')} | {r.get('total_amount'):,} | {r.get('delivery_days') or '-'} | {r.get('price_score')} | {r.get('delivery_score')} | {r.get('perf_score')} | {r.get('total_score')} |")
+            lines.append(
+                f"| {r.get('rank')} | {r.get('supplier_name')} | {fmt_money(r.get('total_amount'))} | "
+                f"{r.get('delivery_days') or '-'} | {r.get('price_score')} | {r.get('delivery_score')} | "
+                f"{r.get('perf_score')} | {r.get('total_score')} |"
+            )
         lines.append("")
 
     # 全程仲裁裁决

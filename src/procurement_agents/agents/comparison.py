@@ -2,9 +2,11 @@
 
 注：本流程不含询价/报价环节 —— 价格来自供应商主数据(price_items)，
 按需求行的数量自动计出各家总价，再做 价格60%+交期20%+绩效20% 综合评分。
+金额精度：总价/溢价一律 Decimal（P1.1），评分仍为 0-100 的 float。
 """
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any, Dict, List
 
 from pydantic import BaseModel
@@ -37,12 +39,12 @@ class ComparisonAgent(BaseAgent):
         priced: List[Dict[str, Any]] = []
         for cand in candidates:
             sid = str(cand.get("supplier_id"))
-            lines, total, missing = catalog_lines(str(cand.get("price_items") or ""), req_items)
+            lines, cand_total, missing = catalog_lines(str(cand.get("price_items") or ""), req_items)
             priced.append({
                 "supplier_id": sid,
                 "supplier_name": str(cand.get("name") or sid),
                 "lines": lines,
-                "total": total,
+                "total": cand_total,
                 "missing": missing,
                 "delivery_days": cand.get("delivery_days"),
                 "performance_rating": float(cand.get("performance_rating", 0) or 0),
@@ -57,13 +59,13 @@ class ComparisonAgent(BaseAgent):
                 f"[{self.display_name}] 仅 {len(valid)} 家候选价目覆盖需求，无法形成有效比价，请扩充供应商价目"
             )
 
-        min_total = min(p["total"] for p in valid)
+        min_total: Decimal = min(p["total"] for p in valid)
         req_days = requirement.get("delivery_days")
 
         rows: List[ComparisonRow] = []
         for p in sorted(valid, key=lambda x: x["supplier_id"]):
-            total = p["total"]
-            price_score = (min_total / total * 100) if total > 0 else 0.0
+            total: Decimal = p["total"]
+            price_score = float(min_total / total * 100) if total > 0 else 0.0
             delivery_score = 0.0
             q_days = p["delivery_days"]
             if q_days and req_days:
@@ -94,17 +96,18 @@ class ComparisonAgent(BaseAgent):
 
         lowest = min(rows, key=lambda r: r.total_amount)
         winner = rows[0]
-        gap = round((winner.total_amount - lowest.total_amount) / lowest.total_amount * 100, 2) if lowest.total_amount else 0.0
+        gap = float((winner.total_amount - lowest.total_amount) / lowest.total_amount * 100) \
+            if lowest.total_amount else 0.0
 
         reasons: List[str] = []
         risks: List[str] = []
         if winner.supplier_id != lowest.supplier_id:
             reasons.append(
-                f"未选总价最低的 {lowest.supplier_name}({lowest.total_amount:,.0f} 元)，"
-                f"因综合评分更高(交期/历史绩效)，溢价 {gap}%"
+                f"未选总价最低的 {lowest.supplier_name}({lowest.total_amount:,.2f} 元)，"
+                f"因综合评分更高(交期/历史绩效)，溢价 {gap:.2f}%"
             )
             risks.append(
-                f"推荐对象非总价最低：{winner.supplier_name} 比最低价 {lowest.supplier_name} 高 {gap}%，"
+                f"推荐对象非总价最低：{winner.supplier_name} 比最低价 {lowest.supplier_name} 高 {gap:.2f}%，"
                 "定标前请确认理由充分（如交期/绩效/合规）"
             )
         else:

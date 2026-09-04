@@ -7,6 +7,9 @@
 
 # 运行产物
 outputs/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 *.log
 .coverage
 .coverage.*

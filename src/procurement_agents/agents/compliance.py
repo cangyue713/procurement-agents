@@ -7,6 +7,7 @@
   C4 预算约束            fail：按价目×需求数量计出的总价 > 预算
   C5 价目有效性          warn：库内无价目或未覆盖需求行(无法成交/需补录)
   C6 资质匹配            warn：需求要求的认证供应商缺失
+金额精度：C4 预算比较全 Decimal（P1.1）。
 """
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ from procurement_agents.agents.base import BaseAgent, require_keys
 from procurement_agents.config import RuleConfig
 from procurement_agents.domain.enums import CheckLevel, PhaseName, SupplierRiskLevel
 from procurement_agents.domain.models import ComplianceArtifact, ComplianceCheck
+from procurement_agents.domain.money import fmt_money, to_decimal
 from procurement_agents.knowledge.supplier_lib import blacklist_ids, blacklist_names, catalog_lines
 
 
@@ -82,9 +84,10 @@ class ComplianceAgent(BaseAgent):
                 _add_check(checks, "C3", CheckLevel.WARN, "库内未登记交期")
             # C4 预算（按价目×需求数量）
             _, total, missing = catalog_lines(str(cand.get("price_items") or ""), req_items)
-            budget = requirement.get("budget_amount")
-            if budget and total > budget:
-                _add_check(checks, "C4", CheckLevel.FAIL, f"价目计得总价 {total:,.0f} 元超出预算 {budget:,.0f} 元")
+            budget = to_decimal(requirement.get("budget_amount"))
+            if budget is not None and total > budget:
+                _add_check(checks, "C4", CheckLevel.FAIL,
+                           f"价目计得总价 {fmt_money(total)} 元超出预算 {fmt_money(budget)} 元")
                 eligible = False
             # C5 价目有效性
             if not cand.get("price_items"):

@@ -4,11 +4,15 @@
 1. 每个 Agent 产出一种 Artifact，作为阶段间交接的"单据"；
    单据可被 JSON 序列化（mode="json"）写入 LangGraph 状态，
    从而支持 checkpoint / 追踪 / 人工审批恢复。
-2. 金额字段使用 float（展示两位小数）；生产环境建议替换为 Decimal。
+2. 金额字段(money)一律使用 Decimal（P1.1 修复：全链路 Decimal）；
+   pydantic 的 mode="json" 会把 Decimal 序列化为字符串以保留精度，
+   状态读回计算请用 procurement_agents.domain.money.to_decimal 还原，
+   对外展示请用 fmt_money 格式化。
 """
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -21,6 +25,7 @@ from procurement_agents.domain.enums import (
     UrgencyLevel,
     VerdictAction,
 )
+from procurement_agents.domain.money import PENALTY_DAILY_RATE
 
 
 class RequirementItem(BaseModel):
@@ -38,7 +43,7 @@ class RequirementArtifact(BaseModel):
     category: str = Field(..., description="品类(ProductCategory 值)")
     urgency: UrgencyLevel = UrgencyLevel.NORMAL
     items: List[RequirementItem] = Field(default_factory=list, description="需求明细行")
-    budget_amount: Optional[float] = Field(None, gt=0, description="预算金额上限(元)")
+    budget_amount: Optional[Decimal] = Field(None, gt=0, description="预算金额上限(元)")
     delivery_days: Optional[int] = Field(None, gt=0, description="期望交付天数")
     quality_requirements: List[str] = Field(default_factory=list, description="质量/技术要求要点")
     usage_scene: str = Field("", description="用途场景")
@@ -101,8 +106,8 @@ class QuoteLine(BaseModel):
 
     description: str
     quantity: float
-    unit_price: float = Field(..., ge=0)
-    amount: float = Field(..., ge=0, description="小计金额")
+    unit_price: Decimal = Field(..., ge=0)
+    amount: Decimal = Field(..., ge=0, description="小计金额")
 
 
 class ComparisonRow(BaseModel):
@@ -110,7 +115,7 @@ class ComparisonRow(BaseModel):
 
     supplier_id: str
     supplier_name: str
-    total_amount: float
+    total_amount: Decimal
     delivery_days: Optional[int] = None
     price_score: float = Field(0, ge=0, le=100, description="价格得分")
     delivery_score: float = Field(0, ge=0, le=100, description="交期得分")
@@ -169,12 +174,12 @@ class ContractArtifact(BaseModel):
     buyer: str = Field("示例制造有限公司 采购中心", description="买方")
     supplier_id: str = Field("", description="成交供应商 id")
     supplier_name: str = Field("", description="成交供应商名称")
-    total_amount: float = Field(0, description="合同总金额")
+    total_amount: Decimal = Field(Decimal("0"), description="合同总金额")
     currency: str = "CNY"
     delivery_days: Optional[int] = None
     payment_terms: str = ""
     warranty_months: int = 0
-    penalty_rate: float = Field(0.005, description="逾期违约金日费率")
+    penalty_rate: Decimal = Field(PENALTY_DAILY_RATE, description="逾期违约金日费率")
     items: List[QuoteLine] = Field(default_factory=list)
     conditions: List[str] = Field(default_factory=list, description="需载入合同的合规条件")
     po_text: str = Field("", description="采购订单文本")

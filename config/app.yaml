@@ -20,8 +20,9 @@ llm:
 workflow:
   max_agent_retries: 2        # 单个业务节点失败的最大重试次数
   agent_timeout_seconds: 60   # 单个节点执行超时(秒)
-  auto_approve_holds: true    # 仲裁裁决 hold(需人审) 是否自动放行并留痕；false 则停在人审点
-  checkpointer: memory        # memory=内存断点(支持人审暂停/恢复) | none=单次直跑
+  auto_approve_holds: true    # 仲裁裁决 hold(需人审) 是否自动放行并留痕；false 则停在人审点(needs_input)
+  checkpointer: memory        # memory=内存断点 | sqlite=SqliteSaver 持久化(进程重启可恢复,需服务化运行) | none=单次直跑
+  sqlite_path: outputs/cases.sqlite   # checkpointer=sqlite 时的 checkpoint 库文件
   shortlist_size: 3           # 供应商短名单候选数
   tracing: true               # 是否在 outputs/ 输出结构化运行追踪
   output_dir: outputs

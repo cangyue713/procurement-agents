@@ -3,6 +3,38 @@
 本项目版本记录遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.2.0] - 2026-09-04
+
+### Added
+
+- **P1.2 服务化**：`web_api.py`（FastAPI）三接口
+  `POST /procurements`、`GET /procurements/{case_id}`、`POST /procurements/{case_id}/approve`；
+  `service.py` 编排服务（submit/view/resume/list_cases）；`store.py` case 与审批决策 sqlite 存储。
+- **P1.3 持久化断点**：checkpointer 支持 `sqlite`（SqliteSaver，`workflow.sqlite_path` 可配），
+  人审挂起点经 `interrupt/resume` 真正落地 `needs_input` 语义，进程重启后可查询并续跑。
+- **P1.4 决策走 DB 与并发隔离**：废弃进程级 `HUMAN_DECIDERS` 注册表，
+  审批决策落库（CaseStore approvals）+ 从断点续跑；多 case 并发回归测试。
+- 金额工具模块 `domain/money.py`：`to_decimal` / `fmt_money` / 违约金费率单一常量
+  `PENALTY_DAILY_RATE`（0.05%/日）。
+
+### Changed
+
+- **P1.1 领域硬伤修复**：
+  - 供应商成熟度评分不再硬编码年份，改用 `datetime.now().year` 计算成立年限；
+  - 违约金费率收敛为单一常量 `PENALTY_DAILY_RATE`（此前模型默认 0.005 与合同实际写入
+    0.0005 不一致，相差 10 倍）；合同模板费率文本改为常量驱动占位；
+  - 金额 float → 全链路 `Decimal`：领域模型字段、价目解析/计价（supplier_lib）、
+    比价/合规/合同/仲裁金额比较、模板渲染与报告展示均改为 Decimal（JSON 状态中为
+    精度无损字符串，读回用 `to_decimal`，展示用 `fmt_money`）。
+- `runner.py`：`run()` 支持 `auto_approve=False` 挂起语义；新增 `resume()` / `get_state()`；
+  `ProcurementRun` 增加 `needs_input` / `pending_approval` 视图。
+- `graph.py`：审批节点改为 LangGraph `interrupt()` 真挂起（替代进程级决策器回调）。
+- 依赖新增 `fastapi` / `uvicorn`（服务化）与 `httpx`（测试）；
+  离线引导 `fetch_wheels.py` 增补对应 PINS（含 langgraph-checkpoint-sqlite / aiosqlite）。
+- 测试 42 → 60 用例（新增 money / service / web 回归组），覆盖率维持 ≥ 88%。
+
+[0.2.0]: https://github.com/cangyue713/procurement-agents/releases/tag/v0.2.0
+
 ## [0.1.0] - 2026-09-04
 
 ### Added

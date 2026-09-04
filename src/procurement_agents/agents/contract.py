@@ -2,11 +2,14 @@
 
 说明：成交候选来自供应商主数据（价格/交期/付款/质保都在 suppliers.csv 中），
 无询价报价环节 —— 合同行明细 = 需求行 × 成交候选的库内价目。
+金额精度：合同金额/行价一律 Decimal（P1.1）；违约金日费率使用单一常量
+``PENALTY_DAILY_RATE``（0.05%），与领域模型默认值同源。
 """
 from __future__ import annotations
 
 import string
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Dict, List
 
 from pydantic import BaseModel
@@ -15,6 +18,14 @@ from procurement_agents.agents.base import AgentError, BaseAgent, require_keys
 from procurement_agents.config import PROJECT_ROOT
 from procurement_agents.domain.enums import PhaseName
 from procurement_agents.domain.models import ContractArtifact, QuoteLine
+from procurement_agents.domain.money import (
+    CENT,
+    PENALTY_DAILY_RATE,
+    fmt_money,
+    penalty_pct_text,
+    to_decimal,
+    to_decimal_or_zero,
+)
 from procurement_agents.knowledge.supplier_lib import catalog_lines
 
 TEMPLATE_DIR = PROJECT_ROOT / "templates"
@@ -53,11 +64,11 @@ class ContractDraftAgent(BaseAgent):
         case_id = str(inputs.get("case_id") or datetime.now().strftime("%Y%m%d-%H%M%S"))
         po_no = f"PO-{case_id}"
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        budget = requirement.get("budget_amount")
-        total = float(winner_row["total_amount"])
-        if budget and total > budget:
+        budget = to_decimal(requirement.get("budget_amount"))
+        total = to_decimal_or_zero(winner_row.get("total_amount"))
+        if budget is not None and total > budget:
             raise AgentError(
-                f"[{self.display_name}] 定标金额 {total:,.0f} 元超过预算 {budget:,.0f} 元，禁止生成合同"
+                f"[{self.display_name}] 定标金额 {fmt_money(total)} 元超过预算 {fmt_money(budget)} 元，禁止生成合同"
             )
 
         # 行明细 = 需求行 × 成交候选价目；价目缺覆盖时兜底按需求行生成占位行
@@ -65,13 +76,13 @@ class ContractDraftAgent(BaseAgent):
         items = [QuoteLine(**line) for line in lines]
         if not items:
             req_lines = requirement.get("items", [])
-            total_qty = sum(float(r.get("quantity", 0)) for r in req_lines) or 1.0
+            total_qty = sum(to_decimal_or_zero(r.get("quantity")) for r in req_lines) or Decimal("1")
             items = [
                 QuoteLine(
                     description=it.get("description", ""),
-                    quantity=float(it.get("quantity", 0)),
-                    unit_price=round(total * float(it.get("quantity", 0)) / total_qty, 2),
-                    amount=round(total * float(it.get("quantity", 0)) / total_qty, 2),
+                    quantity=float(to_decimal_or_zero(it.get("quantity"))),
+                    unit_price=(total * to_decimal_or_zero(it.get("quantity")) / total_qty).quantize(CENT),
+                    amount=(total * to_decimal_or_zero(it.get("quantity")) / total_qty).quantize(CENT),
                 )
                 for it in req_lines
             ]
@@ -96,14 +107,16 @@ class ContractDraftAgent(BaseAgent):
             "supplier_name": winner_row["supplier_name"],
             "title": requirement.get("title", "采购"),
             "now": now,
-            "total": f"{total:,.2f}",
+            "total": fmt_money(total),
             "delivery_days": delivery_days or requirement.get("delivery_days") or "双方协商",
             "payment": payment,
             "warranty": f"{warranty} 个月" if warranty else "按供应商承诺",
             "currency": "CNY",
+            "penalty_pct": penalty_pct_text(),
             "conditions_text": "；".join(conditions) if conditions else "无",
             "item_lines": "\n".join(
-                f"{i + 1}. {li.description} × {li.quantity:g}（单价 {li.unit_price:,.2f} 元，小计 {li.amount:,.2f} 元）"
+                f"{i + 1}. {li.description} × {li.quantity:g}（单价 {fmt_money(li.unit_price)} 元，"
+                f"小计 {fmt_money(li.amount)} 元）"
                 for i, li in enumerate(items)
             ),
         }
@@ -117,12 +130,12 @@ class ContractDraftAgent(BaseAgent):
             buyer=self._buyer,
             supplier_id=winner_row["supplier_id"],
             supplier_name=winner_row["supplier_name"],
-            total_amount=round(total, 2),
+            total_amount=total.quantize(CENT),
             currency="CNY",
             delivery_days=delivery_days,
             payment_terms=payment,
             warranty_months=warranty,
-            penalty_rate=0.0005,
+            penalty_rate=PENALTY_DAILY_RATE,
             items=items,
             conditions=conditions,
             po_text=po_text,

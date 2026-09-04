@@ -28,6 +28,7 @@ warnings.resetwarnings()
 warnings.filterwarnings("ignore", message=r".*allowed_objects.*")
 
 from procurement_agents.config import AppConfig  # noqa: E402
+from procurement_agents.domain.money import fmt_money  # noqa: E402
 from procurement_agents.runner import ProcurementRunner  # noqa: E402
 
 REQUEST_FILE = Path(__file__).resolve().parent / "input" / "request.txt"
@@ -76,13 +77,13 @@ def render(a: dict, b: dict) -> None:
         ("需求标题", lambda d: str(d["title"])),
         ("品类 / 紧急度", lambda d: f"{d['category']} / {d['urgency']}"),
         ("明细行数", lambda d: f"{len(d['items'])} 行"),
-        ("预算 / 交期", lambda d: f"{d['budget']:,.0f} 元 / {d['delivery_days']} 天"),
+        ("预算 / 交期", lambda d: f"{fmt_money(d['budget'])} 元 / {d['delivery_days']} 天"),
         ("采购策略", lambda d: str(d["strategy"])),
         ("候选供应商", lambda d: "、".join(d["candidates"])),
         ("比价推荐", lambda d: str(d["recommended"])),
         ("合规放行/否决", lambda d: f"{len(d['approved'])}家放行 / {d['rejected']}"),
         ("成交对象", lambda d: str(d["winner"]) or "-"),
-        ("成交金额", lambda d: f"{d['total']:,.2f} 元" if d["total"] else "-"),
+        ("成交金额", lambda d: f"{fmt_money(d['total'])} 元" if d["total"] else "-"),
         ("仲裁挂起/问题", lambda d: f"{d['holds']} 次 / {d['issues']} 项"),
     ]
     for label, fn in keys:

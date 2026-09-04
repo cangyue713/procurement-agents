@@ -5,6 +5,8 @@
     多值字段 aliases/categories/certifications/risk_flags 以 | 分隔，UTF-8 编码，可容忍 BOM）
   * knowledge/data/blacklist.json —— 禁入名单
 评分透明可审计：绩效 45% + 资质 25% + 成熟度 15% + 注册资金 15% - 风险扣分。
+
+金额精度（P1.1）：价目/计价一律 Decimal（解析即转 Decimal，不做 float 算术）。
 """
 from __future__ import annotations
 
@@ -12,6 +14,8 @@ import csv
 import json
 import logging
 import re
+from datetime import datetime
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -22,6 +26,7 @@ from procurement_agents.domain.models import (
     SupplierCandidate,
     SupplierShortlistArtifact,
 )
+from procurement_agents.domain.money import CENT, to_decimal
 
 logger = logging.getLogger(__name__)
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -87,9 +92,9 @@ def _opt_int(value: Any) -> Optional[int]:
 # --------------------------------------------------------------------------
 # 库内价目工具（价格与供应商介绍在同一张 suppliers.csv 表中）
 # --------------------------------------------------------------------------
-def parse_price_items(price_items: str) -> Dict[str, float]:
-    """解析价目单元格：`物品描述=单价` 多条以 | 分隔 -> {描述: 单价}。"""
-    result: Dict[str, float] = {}
+def parse_price_items(price_items: str) -> Dict[str, Decimal]:
+    """解析价目单元格：`物品描述=单价` 多条以 | 分隔 -> {描述: Decimal 单价}。"""
+    result: Dict[str, Decimal] = {}
     if not price_items:
         return result
     for part in price_items.split("|"):
@@ -98,10 +103,9 @@ def parse_price_items(price_items: str) -> Dict[str, float]:
             continue
         desc, _, price = part.partition("=")
         desc = desc.strip()
-        try:
-            result[desc] = float(price.strip().replace(",", ""))
-        except (TypeError, ValueError):
-            continue
+        d = to_decimal(price.strip())
+        if d is not None:
+            result[desc] = d
     return result
 
 
@@ -120,8 +124,8 @@ def _common_hanzi(a: str, b: str, min_len: int = 2) -> bool:
     return False
 
 
-def match_price(price_items: str, wanted_desc: str) -> Optional[float]:
-    """在价目表中为需求行描述找到匹配单价。
+def match_price(price_items: str, wanted_desc: str) -> Optional[Decimal]:
+    """在价目表中为需求行描述找到匹配单价（Decimal）。
 
     匹配策略（宽松但防误匹配）：
       1) 完全相等；
@@ -149,34 +153,34 @@ def match_price(price_items: str, wanted_desc: str) -> Optional[float]:
 def catalog_lines(
     price_items: str,
     req_items: List[Dict[str, Any]],
-) -> Tuple[List[Dict[str, Any]], float, List[str]]:
+) -> Tuple[List[Dict[str, Any]], Decimal, List[str]]:
     """把供应商库内价目与需求行结合成"报价行明细"。
 
     返回: (lines, total, missing_desc)
       lines:   [{"description","quantity","unit_price","amount"}, ...] 需求行全覆盖时逐行计价
-      total:   合计金额
+      total:   合计金额（Decimal）
       missing: 价目未能覆盖的需求行描述（该部分计 0，比价/合规据此预警）
     """
     lines: List[Dict[str, Any]] = []
     missing: List[str] = []
-    total = 0.0
+    total = Decimal("0")
     for it in req_items:
         desc = str(it.get("description", "")).strip()
-        qty = float(it.get("quantity", 0) or 0)
+        qty_d = to_decimal(it.get("quantity", 0))
         price = match_price(price_items, desc)
-        if not desc or qty <= 0 or price is None:
+        if not desc or qty_d is None or qty_d <= 0 or price is None:
             if desc:
                 missing.append(desc)
             continue
-        amount = round(qty * price, 2)
+        amount = (qty_d * price).quantize(CENT)
         total += amount
         lines.append({
             "description": desc,
-            "quantity": qty,
+            "quantity": float(qty_d),
             "unit_price": price,
             "amount": amount,
         })
-    return lines, round(total, 2), missing
+    return lines, total, missing
 
 
 @lru_cache(maxsize=2)
@@ -261,7 +265,9 @@ def score_supplier(info: Dict[str, Any], category: str) -> float:
     certs = len(info.get("certifications", []))
     cert_score = min(100.0, 30 + certs * 20)
 
-    age = max(0, 2025 - int(info.get("founded_year", 2020)))
+    # 成立年限以当前年份计算（不再硬编码年份，避免跨年失真）
+    founded = int(info.get("founded_year", 0) or 0)
+    age = max(0, datetime.now().year - founded) if founded else 0
     maturity = 100.0 if age >= 10 else (85.0 if age >= 5 else (70.0 if age >= 3 else 55.0))
 
     capital = float(info.get("registered_capital", 0))

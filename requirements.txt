@@ -5,5 +5,10 @@ PyYAML>=6.0
 python-dotenv>=1.0.0
 openai>=1.30.0        # 仅 DeepSeek/OpenAI 兼容 Provider 需要；Mock 模式可不启用
 
+# P1.2 服务化（Runner 外包 REST API）
+fastapi>=0.110.0
+uvicorn>=0.20.0
+
 # 开发/测试
 pytest>=8.0.0
+httpx>=0.27.0         # FastAPI TestClient 依赖

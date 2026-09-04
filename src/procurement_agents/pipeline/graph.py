@@ -11,8 +11,10 @@
                ├─ block / 业务失败 -> 收尾节点(阻断)
     ... -> final_node -> 仲裁收官 -> finish_node -> END
 
-工业化要素：内存 checkpointer(可暂停/恢复)、条件路由、重试与超时(节点内)、
-全程仲裁留痕 + 审批留痕 + 阶段运行记录。
+工业化要素（P1 起）：
+  * checkpointer 可注入（MemorySaver 或 SqliteSaver），审批点经 interrupt() 真正
+    挂起（status=needs_input），外部以 Command(resume=...) 决策后续跑；
+  * 条件路由、重试与超时(节点内)、全程仲裁留痕 + 审批留痕 + 阶段运行记录。
 """
 from __future__ import annotations
 
@@ -33,6 +35,7 @@ from procurement_agents.agents.supplier import SupplierAgent
 from procurement_agents.config import AppConfig, WorkflowConfig
 from procurement_agents.domain.enums import PhaseName, VerdictAction
 from procurement_agents.domain.models import ApprovalRecord
+from procurement_agents.domain.money import fmt_money
 from procurement_agents.llm.base import LLMProvider
 from procurement_agents.pipeline.nodes import PhaseNode
 from procurement_agents.pipeline.state import WorkflowState
@@ -49,11 +52,6 @@ N_CT = "contract_node"
 N_FIN = "final_node"
 N_APPROVE = "approval_node"
 N_FINISH = "finish_node"
-
-# 人工决策器注册表（case_id -> callable）。
-# 说明：回调函数不可被 checkpoint 序列化，故不进状态，
-# 由 Runner 在运行前注册、运行后注销。
-HUMAN_DECIDERS: Dict[str, Callable[[str, str], bool]] = {}
 
 
 # ==========================================================================
@@ -171,26 +169,46 @@ def _router_after_arbitration(state: Dict[str, Any]) -> str:
 
 
 def _approval_node(state: Dict[str, Any]) -> Dict[str, Any]:
-    """人工审批节点：auto_approve 配置或外部人工决策器。"""
+    """人工审批节点（P1：真正挂起等待决策）。
+
+    语义：
+      * meta.auto_approve=True  -> 自动放行留痕（不中断，全自动跑完）；
+      * meta.auto_approve=False -> 调用 interrupt() 挂起（status=needs_input），
+        外部以 Command(resume={'approved': bool, 'approver': str, 'comment': str})
+        续跑：approved 放行 / rejected 阻断留痕。
+    挂起点信息以 interrupt payload 呈现（供审批方了解"审什么"）。
+    """
+    from langgraph.types import interrupt  # 惰性导入：仅在审批分支使用
+
     arb = state.get("arbitration") or []
     hold_records = [r for r in arb if r.get("verdict") == VerdictAction.HOLD.value]
     latest = hold_records[-1] if hold_records else {}
     meta = state.get("meta") or {}
     auto = bool(meta.get("auto_approve", True))
-    # 决策器从进程级注册表读取（不进 state，保持 checkpoint 可序列化）
-    decider = HUMAN_DECIDERS.get(str(state.get("case_id"))) if not auto else None
+    phase = latest.get("phase") or PhaseName.APPROVAL.value
 
-    approve = auto
-    approver = "系统(自动审批配置)"
-    comment = f"仲裁挂起项自动放行：{latest.get('summary', '')}"
-    if not auto and callable(decider):
-        approve = bool(decider(latest.get("phase", ""), latest.get("summary", "")))
-        approver = "人工(外部决策器)"
-        comment = "人工审批通过" if approve else "人工审批拒绝"
+    if auto:
+        approve = True
+        approver = "系统(自动审批配置)"
+        comment = f"仲裁挂起项自动放行：{latest.get('summary', '')}"
+        decision_kind = "auto_approved"
+    else:
+        # 挂起等待人工决策：第一次执行在此暂停并返回 needs_input 状态；
+        # 续跑时 interrupt() 返回 resume 传入的决策 dict。
+        decision = interrupt({
+            "type": "procurement_approval",
+            "phase": phase,
+            "summary": latest.get("summary", ""),
+            "case_id": state.get("case_id"),
+        }) or {}
+        approve = bool(decision.get("approved", False))
+        approver = str(decision.get("approver") or "人工(审批接口)")
+        comment = str(decision.get("comment") or ("人工审批通过" if approve else "人工审批拒绝"))
+        decision_kind = "approved" if approve else "rejected"
 
     record = ApprovalRecord(
-        phase=PhaseName(latest.get("phase", PhaseName.APPROVAL.value)),
-        decision="auto_approved" if auto else ("approved" if approve else "rejected"),
+        phase=PhaseName(phase),
+        decision=decision_kind,
         approver=approver,
         comment=comment,
     )
@@ -224,7 +242,7 @@ def _final_node(state: Dict[str, Any]) -> Dict[str, Any]:
     approved = compliance.get("approved_supplier_ids") or []
     summary_lines = [
         f"采购需求: {requirement.get('title')}（{requirement.get('category')}，预算 "
-        f"{requirement.get('budget_amount') or '未填':,} 元）" if requirement.get("budget_amount") else
+        f"{fmt_money(requirement.get('budget_amount'))} 元）" if requirement.get("budget_amount") else
         f"采购需求: {requirement.get('title')}（{requirement.get('category')}，预算未填）",
         f"采购策略: {strategy.get('strategy')}（{'; '.join(strategy.get('rationale') or [])[:120]}）",
         f"候选供应商: {len(shortlist.get('candidates') or [])} 家（库内价目随候选提供）",
@@ -233,7 +251,7 @@ def _final_node(state: Dict[str, Any]) -> Dict[str, Any]:
     ]
     if contract.get("supplier_name"):
         summary_lines.append(
-            f"定标成交: {contract.get('supplier_name')}，金额 {contract.get('total_amount'):,.2f} 元，"
+            f"定标成交: {contract.get('supplier_name')}，金额 {fmt_money(contract.get('total_amount'))} 元，"
             f"PO 编号 {contract.get('po_number')}"
         )
     else:
@@ -278,9 +296,18 @@ def _finish_node(state: Dict[str, Any]) -> Dict[str, Any]:
 # ==========================================================================
 # 主构建入口
 # ==========================================================================
-def build_pipeline(config: AppConfig | None = None, provider: LLMProvider | None = None):
-    """构建并编译 LangGraph 采购流程。返回 (compiled_app, app_meta)。"""
-    from langgraph.checkpoint.memory import MemorySaver
+def build_pipeline(
+    config: AppConfig | None = None,
+    provider: LLMProvider | None = None,
+    checkpointer: Any | None = None,
+):
+    """构建并编译 LangGraph 采购流程。返回 (compiled_app, app_meta)。
+
+    checkpointer 语义：
+      * 显式传入（MemorySaver / SqliteSaver 等）-> 直接使用（Runner 管理生命周期）；
+      * 未传入且 config.workflow.checkpointer == "memory" -> 新建 MemorySaver；
+      * "none" / 其它 -> 无断点（审批 interrupt 需要 checkpointer，见 Runner）。
+    """
     from langgraph.graph import END, START, StateGraph
 
     cfg = config or AppConfig.load()
@@ -326,14 +353,15 @@ def build_pipeline(config: AppConfig | None = None, provider: LLMProvider | None
 
     builder.add_edge(START, N_REQ)
 
-    checkpointer = None
-    if cfg.workflow.checkpointer == "memory":
+    if checkpointer is None and cfg.workflow.checkpointer == "memory":
+        from langgraph.checkpoint.memory import MemorySaver
+
         checkpointer = MemorySaver()
     compiled = builder.compile(checkpointer=checkpointer)
     meta = {
         "provider": provider.name,
         "graph_node_count": len(builder.nodes),
-        "checkpointer": cfg.workflow.checkpointer,
+        "checkpointer": getattr(checkpointer, "name", None) or cfg.workflow.checkpointer,
     }
     return compiled, meta
 

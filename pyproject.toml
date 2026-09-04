@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "procurement-agents"
-version = "0.1.0"
+version = "0.2.0"
 description = "供应链/采购流程自动化多Agent项目：需求理解→策略判定→供应商推荐→报价解析→比价→合规→合同草稿，仲裁Agent全程监控"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,11 +14,14 @@ dependencies = [
     "PyYAML>=6.0",
     "python-dotenv>=1.0.0",
     "openai>=1.30.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.20.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
+    "httpx>=0.27.0",
     "ruff>=0.6.0",
     "mypy>=1.10.0",
     "coverage[toml]>=7.5.0",

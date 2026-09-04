@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from procurement_agents.agents.base import BaseAgent, require_keys
 from procurement_agents.domain.enums import CheckLevel, PhaseName, VerdictAction
 from procurement_agents.domain.models import ArbitrationCheck, ArbitrationRecord
+from procurement_agents.domain.money import fmt_money, to_decimal, to_decimal_or_zero
 from procurement_agents.knowledge.supplier_lib import (
     match_price,
     parse_price_items,
@@ -235,12 +236,14 @@ def _compliance(r: _Reporter, art: Dict[str, Any], ctx: Dict[str, Any]) -> None:
 def _contract(r: _Reporter, art: Dict[str, Any], ctx: Dict[str, Any]) -> None:
     if not art.get("supplier_name"):
         r.add("定标对象", CheckLevel.FAIL, "合同未确定成交供应商")
-    budget = (ctx.get("requirement") or {}).get("budget_amount")
-    total = float(art.get("total_amount", 0) or 0)
-    if budget and total > budget:
-        r.add("预算红线", CheckLevel.FAIL, f"合同金额 {total:,.0f} 元超预算 {budget:,.0f} 元")
-    elif budget:
-        r.add("预算红线", CheckLevel.PASS, f"合同金额 {total:,.0f} 元在预算 {budget:,.0f} 元内")
+    budget = to_decimal((ctx.get("requirement") or {}).get("budget_amount"))
+    total = to_decimal_or_zero(art.get("total_amount"))
+    if budget is not None and total > budget:
+        r.add("预算红线", CheckLevel.FAIL,
+              f"合同金额 {fmt_money(total)} 元超预算 {fmt_money(budget)} 元")
+    elif budget is not None:
+        r.add("预算红线", CheckLevel.PASS,
+              f"合同金额 {fmt_money(total)} 元在预算 {fmt_money(budget)} 元内")
     approved = set((ctx.get("compliance") or {}).get("approved_supplier_ids") or [])
     sid = art.get("supplier_id")
     if approved and sid not in approved:

@@ -6,6 +6,9 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
+
+from procurement_agents.domain.money import to_decimal
 
 
 def _missing_budget_text() -> str:
@@ -23,7 +26,8 @@ def test_end_to_end_demo(demo_data, runner, config):
     contract = result.contract
     assert strategy == demo_data["expected_strategy"]
     assert contract.get("supplier_name") == demo_data["expected_winner"]
-    assert contract.get("total_amount") == 2126400.0
+    # P1.1：金额以 Decimal 全链路，状态内为精度无损字符串，按数值语义断言
+    assert to_decimal(contract.get("total_amount")) == Decimal("2126400.00")
     assert contract.get("po_text") and contract.get("contract_text")
     # 合同行明细按需求 3 行生成
     assert len(contract.get("items", [])) == 3
@@ -64,12 +68,16 @@ def test_incomplete_demand_auto_approves(demo_data, runner):
 
 
 def test_human_reject_blocks(demo_data, runner):
-    """接入人工决策器并拒绝策略审批 -> 流程应阻断。"""
+    """P1：审批改为挂起等待；拒绝决策 -> 流程阻断（替代原 human_decider 回调语义）。"""
     result = runner.run(
         request_text=_missing_budget_text(),
         case_id="PC-T-REJECT",
         auto_approve=False,
-        human_decider=lambda phase, summary: False,  # 一律拒绝
     )
-    assert result.status == "blocked"
-    assert any(i.get("stage") == "approval_node" for i in result.issues)
+    # 流程停在人审点等待人工决策
+    assert result.status == "needs_input"
+    assert result.pending_approval is not None
+    # 提供拒绝决策 -> 阻断
+    rejected = runner.resume("PC-T-REJECT", approved=False, approver="测试审批人", comment="拒绝")
+    assert rejected.status == "blocked"
+    assert any(i.get("stage") == "approval_node" for i in rejected.issues)

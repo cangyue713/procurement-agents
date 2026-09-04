@@ -90,7 +90,7 @@ def render(a: dict, b: dict) -> None:
         try:
             left, right = fn(a), fn(b)
             print(f"  {label:<12} {left:<32} {right}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # 单字段渲染失败不中断对照输出
             print(f"  {label:<12} ! {exc}")
     print("=" * 78)
 

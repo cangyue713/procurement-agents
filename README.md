@@ -1,5 +1,7 @@
 # 供应链/采购流程自动化 · 多 Agent 项目
 
+[![CI](https://github.com/cangyue713/procurement-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/cangyue713/procurement-agents/actions/workflows/ci.yml)
+
 > 从**分工**到**工业化**：用 7 个各司其职的 Agent + LangGraph 状态机，把「采购需求 → PO/合同草稿」整条链路自动化。
 > 价格数据与供应商介绍**放在同一张表**（`suppliers.csv` 库内价目），全流程**无询价/报价环节**，
 > 由**仲裁 Agent** 全程监控、留痕、把关。
@@ -84,6 +86,7 @@
 | **规则可配置** | `config/app.yaml`：直采/招标阈值、重试次数、审批策略等 |
 | **数据资产化** | 供应商主数据为 CSV（Excel 可直接维护，价格与介绍同源），黑名单 JSON，评分透明可追溯 |
 | **测试体系** | 单测（模型引擎/各 Agent/仲裁规则/护栏）+ 端到端（LangGraph 全链路） |
+| **质量门禁** | GitHub Actions CI：ruff 静态检查 + mypy 类型检查 + coverage ≥80%（`coverage run -m pytest`）自动执行 |
 
 ## 五、快速开始
 

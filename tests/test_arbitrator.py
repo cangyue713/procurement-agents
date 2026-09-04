@@ -1,8 +1,6 @@
 """仲裁 Agent 全程监控规则测试（无询价/报价环节，含价目完整性监控）。"""
 from __future__ import annotations
 
-import pytest
-
 from procurement_agents.agents.arbitrator import ArbitratorAgent
 from procurement_agents.domain.enums import PhaseName, VerdictAction
 

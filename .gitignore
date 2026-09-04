@@ -8,6 +8,10 @@
 # 运行产物
 outputs/
 *.log
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
 # 临时
 .tmp/

@@ -105,7 +105,7 @@ def main() -> int:
         done.add(key)
         try:
             data = get_json(INDEX.format(name=name))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # 单包解析失败跳过，不中断整体下载
             print(f"[skip] {name}: {exc}")
             continue
         version = data["info"]["version"]

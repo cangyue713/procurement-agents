@@ -14,7 +14,7 @@ import json
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 # ----------------------- 任务常量 -----------------------
 TASK_PARSE_REQUIREMENT = "parse_requirement"  # 自由文本需求 -> 结构化需求

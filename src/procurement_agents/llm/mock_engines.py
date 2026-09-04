@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from procurement_agents.domain.enums import ProductCategory, UrgencyLevel
 

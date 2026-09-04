@@ -75,7 +75,7 @@ class PhaseNode:
                     ).model_dump(mode="json")
                 ]
                 return updates
-            except Exception as exc:  # noqa: BLE001 —— 统一护栏处理
+            except Exception as exc:  # 统一护栏：任何异常进入重试/升级逻辑
                 last_err = f"{type(exc).__name__}: {exc}"
                 logger.warning("[%s] 第 %d 次执行失败: %s", self.node_name, attempt + 1, last_err)
                 if attempt < self._max_retries:

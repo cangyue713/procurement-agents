@@ -15,7 +15,7 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel
 
-from procurement_agents.agents.base import AgentError, BaseAgent, require_keys
+from procurement_agents.agents.base import BaseAgent, require_keys
 from procurement_agents.config import RuleConfig
 from procurement_agents.domain.enums import CheckLevel, PhaseName, SupplierRiskLevel
 from procurement_agents.domain.models import ComplianceArtifact, ComplianceCheck

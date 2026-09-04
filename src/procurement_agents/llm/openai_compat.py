@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from procurement_agents.llm.base import (
     LLMProvider,
@@ -87,7 +87,7 @@ class OpenAICompatProvider(LLMProvider):
                 data = extract_json_block(raw)
                 data = self._normalize(request, data)
                 return LLMResponse(data=data, provider=self.name, raw_text=raw, retries=attempt)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # 调用失败记录后进入重试
                 last_err = str(exc)
                 logger.warning("LLM 调用第 %d 次失败: %s", attempt + 1, last_err)
         return LLMResponse.failed(self.name, f"调用 {self._model} 失败: {last_err}")
@@ -96,9 +96,10 @@ class OpenAICompatProvider(LLMProvider):
     @staticmethod
     def _normalize(request: LLMRequest, data: Dict[str, Any]) -> Dict[str, Any]:
         if request.task == TASK_PARSE_REQUIREMENT:
-            data.setdefault("title", "")
-            data.setdefault("category", "通用物资")
-            data.setdefault("urgency", "一般")
+            # 显式 None/缺失统一回退（setdefault 无法处理模型显式返回 None 的情况）
+            for key, fallback in (("title", ""), ("category", "通用物资"), ("urgency", "一般")):
+                if not data.get(key):
+                    data[key] = fallback
             items = data.get("items")
             if not isinstance(items, list):
                 items = []
@@ -117,8 +118,8 @@ class OpenAICompatProvider(LLMProvider):
                         data[k] = float(data[k])
                     except (TypeError, ValueError):
                         data[k] = None
-            data.setdefault("quality_requirements", [])
-            data.setdefault("usage_scene", "")
-            data.setdefault("missing_fields", [])
-            data.setdefault("notes", "")
+            for key, fallback in (("quality_requirements", []), ("usage_scene", ""),
+                                  ("missing_fields", []), ("notes", "")):
+                if not data.get(key):
+                    data[key] = fallback
         return data

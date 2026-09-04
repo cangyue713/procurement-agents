@@ -22,5 +22,5 @@ class MockProvider(LLMProvider):
             else:
                 return LLMResponse.failed(self.name, f"Mock 引擎不支持任务: {request.task}")
             return LLMResponse(data=data, provider=self.name)
-        except Exception as exc:  # noqa: BLE001 —— 统一包装为失败响应
+        except Exception as exc:  # 边界兜底：引擎错误统一包装为失败响应
             return LLMResponse.failed(self.name, str(exc))

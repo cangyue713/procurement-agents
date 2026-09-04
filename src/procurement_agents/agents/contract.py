@@ -142,5 +142,5 @@ class ContractDraftAgent(BaseAgent):
         template = string.Template(path.read_text(encoding="utf-8"))
         try:
             return template.safe_substitute(ctx)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # 模板渲染失败统一包装为 AgentError
             raise AgentError(f"[合同草稿Agent] 模板渲染失败: {exc}") from exc

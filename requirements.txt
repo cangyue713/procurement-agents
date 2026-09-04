@@ -1,5 +1,12 @@
 # 供应链/采购流程自动化 多Agent项目 —— 运行依赖
-langgraph>=0.6.0
+# langgraph 0.6 世代组合（与 tools/fetch_wheels.py PINS 精确一致，CI/本地行为可复现）
+langgraph==0.6.9
+langchain-core==0.3.86
+langgraph-checkpoint==2.1.2
+langgraph-checkpoint-sqlite==2.0.11     # SqliteSaver（P1.3 持久化断点）独立发行包
+langgraph-sdk==0.2.15
+langgraph-prebuilt==0.6.5
+langsmith==0.3.45
 pydantic>=2.5.0
 PyYAML>=6.0
 python-dotenv>=1.0.0

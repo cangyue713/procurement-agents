@@ -33,6 +33,16 @@
   离线引导 `fetch_wheels.py` 增补对应 PINS（含 langgraph-checkpoint-sqlite / aiosqlite）。
 - 测试 42 → 60 用例（新增 money / service / web 回归组），覆盖率维持 ≥ 88%。
 
+### Fixed
+
+- **CI 安装缺 SqliteSaver 发行包**：`langgraph.checkpoint.sqlite` 属于独立发行包
+  `langgraph-checkpoint-sqlite`，此前仅存在于离线 `.pylibs`，CI 的 `pip install -e ".[dev]"`
+  未安装导致 service/web 共 12 个用例 `ModuleNotFoundError`。
+  已将 langgraph 0.6 世代依赖（langgraph/langchain-core/langgraph-checkpoint/
+  langgraph-checkpoint-sqlite/langgraph-sdk/langgraph-prebuilt/langsmith）在
+  `pyproject.toml` 与 `requirements.txt` 中**精确钉扎**，与 `tools/fetch_wheels.py`
+  的 PINS 一致，保证 CI 与本地行为可复现。
+
 [0.2.0]: https://github.com/cangyue713/procurement-agents/releases/tag/v0.2.0
 
 ## [0.1.0] - 2026-09-04

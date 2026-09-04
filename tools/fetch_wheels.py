@@ -18,7 +18,11 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
 INDEX = "https://pypi.org/pypi/{name}/json"
-TOP_LEVEL = ["langgraph", "pydantic", "PyYAML", "python-dotenv", "openai", "fastapi", "uvicorn", "httpx", "pytest"]
+TOP_LEVEL = [
+    "langgraph", "pydantic", "PyYAML", "python-dotenv", "openai",
+    "fastapi", "uvicorn", "httpx", "pytest",
+    "langgraph-checkpoint-sqlite",   # SqliteSaver 独立发行包（langgraph 递归依赖不会抓到）
+]
 WHEEL_DIR = Path(__file__).resolve().parents[1] / ".wheels"
 
 # 版本钉扎：为规避新一代 httpx2/h11 依赖宇宙与本机 pip 网络问题，

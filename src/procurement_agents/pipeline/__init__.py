@@ -5,10 +5,10 @@ from procurement_agents.pipeline.state import WorkflowState
 from procurement_agents.pipeline.tracing import render_markdown, save_trace
 
 __all__ = [
-    "build_pipeline",
-    "initial_state",
     "PhaseNode",
     "WorkflowState",
+    "build_pipeline",
+    "initial_state",
     "render_markdown",
     "save_trace",
 ]

@@ -15,6 +15,7 @@ coverage.xml
 
 # 临时
 .tmp/
+.dsh-uploads/
 __pycache__/
 *.py[cod]
 .pytest_cache/

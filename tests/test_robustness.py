@@ -140,7 +140,7 @@ def test_render_markdown_contains_sections():
 
 def test_openai_compat_normalize_requirement():
     """schema 级归一化：宽容真实模型的字段偏差（纯函数，不联网）。"""
-    from procurement_agents.llm.base import LLMRequest, TASK_PARSE_REQUIREMENT
+    from procurement_agents.llm.base import TASK_PARSE_REQUIREMENT, LLMRequest
     from procurement_agents.llm.openai_compat import OpenAICompatProvider
 
     norm = OpenAICompatProvider._normalize

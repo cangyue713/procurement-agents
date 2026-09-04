@@ -1,7 +1,7 @@
 """Mock 规则引擎与 Provider 测试（需求解析；价格数据不再走 LLM 层）。"""
 from __future__ import annotations
 
-from procurement_agents.llm.base import LLMRequest, TASK_PARSE_REQUIREMENT
+from procurement_agents.llm.base import TASK_PARSE_REQUIREMENT, LLMRequest
 from procurement_agents.llm.mock_engines import parse_requirement_text
 
 

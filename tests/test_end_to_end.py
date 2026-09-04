@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import json
 
-from procurement_agents.config import AppConfig
-
 
 def _missing_budget_text() -> str:
     """预算与交期均缺失的需求（触发策略挂起 + 人审）。"""

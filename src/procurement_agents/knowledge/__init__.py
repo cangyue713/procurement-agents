@@ -14,10 +14,10 @@ from procurement_agents.knowledge.supplier_lib import (
 )
 
 __all__ = [
-    "decide_strategy",
     "blacklist_ids",
     "blacklist_names",
     "catalog_lines",
+    "decide_strategy",
     "load_blacklist",
     "load_suppliers",
     "match_price",

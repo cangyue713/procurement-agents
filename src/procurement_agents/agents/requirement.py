@@ -8,7 +8,7 @@ from pydantic import BaseModel, ValidationError
 from procurement_agents.agents.base import AgentError, BaseAgent, require_keys
 from procurement_agents.domain.enums import PhaseName, ProductCategory, UrgencyLevel
 from procurement_agents.domain.models import RequirementArtifact
-from procurement_agents.llm.base import LLMProvider, LLMRequest, TASK_PARSE_REQUIREMENT
+from procurement_agents.llm.base import TASK_PARSE_REQUIREMENT, LLMProvider, LLMRequest
 
 _VALID_CATEGORIES = {c.value for c in ProductCategory}
 _VALID_URGENCIES = {u.value for u in UrgencyLevel}

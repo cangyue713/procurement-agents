@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from procurement_agents.llm.base import (
+    TASK_PARSE_REQUIREMENT,
     LLMProvider,
     LLMRequest,
     LLMResponse,
-    TASK_PARSE_REQUIREMENT,
 )
 from procurement_agents.llm.mock_engines import parse_requirement_text
 

@@ -6,8 +6,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-from procurement_agents.domain.enums import VerdictAction
-
 
 def save_trace(state: Dict[str, Any], output_dir: str | Path) -> Path:
     """保存全量运行追踪（JSON）。"""

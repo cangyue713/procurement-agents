@@ -11,4 +11,4 @@
 
 __version__ = "0.1.0"
 
-from procurement_agents.config import AppConfig  # noqa: E402,F401
+from procurement_agents.config import AppConfig  # noqa: F401

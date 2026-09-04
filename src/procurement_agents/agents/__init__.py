@@ -9,8 +9,8 @@ from procurement_agents.agents.strategy import StrategyAgent
 from procurement_agents.agents.supplier import SupplierAgent
 
 __all__ = [
-    "ArbitratorAgent",
     "AgentError",
+    "ArbitratorAgent",
     "BaseAgent",
     "ComparisonAgent",
     "ComplianceAgent",

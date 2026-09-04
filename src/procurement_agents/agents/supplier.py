@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from procurement_agents.agents.base import AgentError, BaseAgent, require_keys
 from procurement_agents.config import WorkflowConfig
 from procurement_agents.domain.enums import PhaseName
-from procurement_agents.domain.models import SupplierShortlistArtifact
 from procurement_agents.knowledge.supplier_lib import recommend_suppliers
 
 

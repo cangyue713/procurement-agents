@@ -12,11 +12,11 @@ import logging
 from typing import Any, Dict
 
 from procurement_agents.llm.base import (
+    TASK_PARSE_REQUIREMENT,
     LLMProvider,
     LLMRequest,
     LLMResponse,
     extract_json_block,
-    TASK_PARSE_REQUIREMENT,
 )
 
 logger = logging.getLogger(__name__)

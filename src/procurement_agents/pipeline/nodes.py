@@ -9,9 +9,9 @@
 from __future__ import annotations
 
 import logging
-import time
 import traceback
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from datetime import datetime
 from typing import Any, Callable, Dict, List
 
@@ -54,7 +54,6 @@ class PhaseNode:
         issues: List[Dict[str, Any]] = list(state.get("issues") or [])
         retries = 0
         last_err = ""
-        t0 = time.monotonic()
 
         agent = self._agent_factory()
         inputs = self._map_inputs(state)
@@ -64,7 +63,8 @@ class PhaseNode:
                     retries = attempt
                 result = self._run_with_timeout(agent, inputs)
                 updates = self._map_outputs(result)
-                updates["phase_history"] = phase_history + [
+                updates["phase_history"] = [
+                    *phase_history,
                     StageRecord(
                         phase=self.phase,
                         started_at=started,
@@ -72,7 +72,7 @@ class PhaseNode:
                         status="ok",
                         retries=retries,
                         artifact_keys=self._artifact_keys,
-                    ).model_dump(mode="json")
+                    ).model_dump(mode="json"),
                 ]
                 return updates
             except Exception as exc:  # 统一护栏：任何异常进入重试/升级逻辑
@@ -93,7 +93,8 @@ class PhaseNode:
         return {
             "status": "failed",
             "issues": issues,
-            "phase_history": phase_history + [
+            "phase_history": [
+                *phase_history,
                 StageRecord(
                     phase=self.phase,
                     started_at=started,
@@ -101,7 +102,7 @@ class PhaseNode:
                     status="error",
                     retries=retries,
                     error=last_err,
-                ).model_dump(mode="json")
+                ).model_dump(mode="json"),
             ],
         }
 

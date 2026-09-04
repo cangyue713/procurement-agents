@@ -27,7 +27,6 @@ import warnings  # noqa: E402
 warnings.resetwarnings()
 warnings.filterwarnings("ignore", message=r".*allowed_objects.*")
 
-from examples.demo_case import load_request_text  # noqa: E402
 from procurement_agents.config import AppConfig  # noqa: E402
 from procurement_agents.runner import ProcurementRunner  # noqa: E402
 

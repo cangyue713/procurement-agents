@@ -6,10 +6,10 @@ import os
 
 from procurement_agents.config import AppConfig
 from procurement_agents.llm.base import (
+    TASK_PARSE_REQUIREMENT,
     LLMProvider,
     LLMRequest,
     LLMResponse,
-    TASK_PARSE_REQUIREMENT,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,9 +45,9 @@ def create_provider(config: AppConfig | None = None) -> LLMProvider:
 
 
 __all__ = [
+    "TASK_PARSE_REQUIREMENT",
     "LLMProvider",
     "LLMRequest",
     "LLMResponse",
     "create_provider",
-    "TASK_PARSE_REQUIREMENT",
 ]

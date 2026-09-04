@@ -1,4 +1,4 @@
-"""离线解压安装引导：把 .wheels/*.whl 解压到 .pylibs 目录。
+r"""离线解压安装引导：把 .wheels/*.whl 解压到 .pylibs 目录。
 
 用途：沙箱/离线环境下 pip 无法写 site-packages 时的替代安装方式。
 用法：python tools/stage_wheels.py
@@ -7,7 +7,6 @@
 """
 from __future__ import annotations
 
-import sys
 import zipfile
 from pathlib import Path
 

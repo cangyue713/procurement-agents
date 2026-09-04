@@ -62,7 +62,7 @@ class ContractDraftAgent(BaseAgent):
 
         # 行明细 = 需求行 × 成交候选价目；价目缺覆盖时兜底按需求行生成占位行
         lines, _total, missing = catalog_lines(str(winner_cand.get("price_items") or ""), requirement.get("items") or [])
-        items = [QuoteLine(**l) for l in lines]
+        items = [QuoteLine(**line) for line in lines]
         if not items:
             req_lines = requirement.get("items", [])
             total_qty = sum(float(r.get("quantity", 0)) for r in req_lines) or 1.0

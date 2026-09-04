@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-import pytest
 from pydantic import BaseModel
 
 from procurement_agents.agents.base import AgentError, BaseAgent

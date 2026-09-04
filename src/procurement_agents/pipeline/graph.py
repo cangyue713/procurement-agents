@@ -23,6 +23,7 @@ from typing import Any, Callable, Dict, List
 from pydantic import BaseModel
 
 from procurement_agents.agents.arbitrator import ArbitratorAgent
+from procurement_agents.agents.base import BaseAgent
 from procurement_agents.agents.comparison import ComparisonAgent
 from procurement_agents.agents.compliance import ComplianceAgent
 from procurement_agents.agents.contract import ContractDraftAgent
@@ -145,7 +146,7 @@ def _make_arbitrator_node(phase: PhaseName, pending_next: str) -> Callable[[Dict
             "context": state,
         })
         updates: Dict[str, Any] = {
-            "arbitration": list(state.get("arbitration") or []) + [record.model_dump(mode="json")],
+            "arbitration": [*(state.get("arbitration") or []), record.model_dump(mode="json")],
             "pending_next": pending_next,
             "current_phase": phase.value,
         }
@@ -194,7 +195,7 @@ def _approval_node(state: Dict[str, Any]) -> Dict[str, Any]:
         comment=comment,
     )
     updates: Dict[str, Any] = {
-        "approvals": list(state.get("approvals") or []) + [record.model_dump(mode="json")],
+        "approvals": [*(state.get("approvals") or []), record.model_dump(mode="json")],
     }
     if not approve:
         issues = list(state.get("issues") or [])

@@ -22,6 +22,11 @@ from procurement_agents.domain.models import ComplianceArtifact, ComplianceCheck
 from procurement_agents.knowledge.supplier_lib import blacklist_ids, blacklist_names, catalog_lines
 
 
+def _add_check(checks: List[Dict[str, Any]], rule: str, level: CheckLevel, message: str) -> None:
+    """追加一条合规检查记录（参数化，避免内嵌函数捕获循环变量）。"""
+    checks.append({"rule": rule, "level": level.value, "message": message})
+
+
 class ComplianceAgent(BaseAgent):
     """对候选执行 黑名单/风险/交期/预算/价目/资质 规则矩阵。"""
 
@@ -50,49 +55,49 @@ class ComplianceAgent(BaseAgent):
             checks: List[Dict[str, Any]] = []
             eligible = True
 
-            def add(rule: str, level: CheckLevel, message: str) -> None:
-                checks.append({"rule": rule, "level": level.value, "message": message})
-
             # C1 禁入名单
             if sid in blacklist_ids() or name in blacklist_names():
-                add("C1", CheckLevel.FAIL, "供应商在禁入名单内，禁止成交")
+                _add_check(checks, "C1", CheckLevel.FAIL, "供应商在禁入名单内，禁止成交")
                 eligible = False
             # C2 风险等级
             risk = str(cand.get("risk_level") or SupplierRiskLevel.LOW.value)
             if risk == SupplierRiskLevel.HIGH.value:
-                add("C2", CheckLevel.FAIL, "高风险供应商，无专项审批不得成交")
+                _add_check(checks, "C2", CheckLevel.FAIL, "高风险供应商，无专项审批不得成交")
                 eligible = False
             elif risk == SupplierRiskLevel.MEDIUM.value:
                 flags = cand.get("risk_flags") or []
-                add("C2", CheckLevel.WARN, f"中风险供应商({';'.join(flags)})，需评估后定标")
+                _add_check(checks, "C2", CheckLevel.WARN, f"中风险供应商({';'.join(flags)})，需评估后定标")
             # C3 交期
             req_days = requirement.get("delivery_days")
             q_days = cand.get("delivery_days")
             if req_days and q_days:
                 if q_days > float(req_days) * 1.3:
-                    add("C3", CheckLevel.FAIL, f"库内交期 {q_days} 天，超出需求 {req_days} 天 30% 以上，无法满足上线计划")
+                    _add_check(checks, "C3", CheckLevel.FAIL,
+                               f"库内交期 {q_days} 天，超出需求 {req_days} 天 30% 以上，无法满足上线计划")
                     eligible = False
                 elif q_days > float(req_days):
-                    add("C3", CheckLevel.WARN, f"库内交期 {q_days} 天，超出需求交期 {req_days} 天，需采购经理确认")
+                    _add_check(checks, "C3", CheckLevel.WARN,
+                               f"库内交期 {q_days} 天，超出需求交期 {req_days} 天，需采购经理确认")
             elif q_days is None:
-                add("C3", CheckLevel.WARN, "库内未登记交期")
+                _add_check(checks, "C3", CheckLevel.WARN, "库内未登记交期")
             # C4 预算（按价目×需求数量）
             _, total, missing = catalog_lines(str(cand.get("price_items") or ""), req_items)
             budget = requirement.get("budget_amount")
             if budget and total > budget:
-                add("C4", CheckLevel.FAIL, f"价目计得总价 {total:,.0f} 元超出预算 {budget:,.0f} 元")
+                _add_check(checks, "C4", CheckLevel.FAIL, f"价目计得总价 {total:,.0f} 元超出预算 {budget:,.0f} 元")
                 eligible = False
             # C5 价目有效性
             if not cand.get("price_items"):
-                add("C5", CheckLevel.WARN, "库内无价目，无法成交，需补录价目")
+                _add_check(checks, "C5", CheckLevel.WARN, "库内无价目，无法成交，需补录价目")
             elif missing:
-                add("C5", CheckLevel.WARN, f"价目未覆盖需求行:{'、'.join(missing[:3])}，覆盖外部分无法计价")
+                _add_check(checks, "C5", CheckLevel.WARN,
+                           f"价目未覆盖需求行:{'、'.join(missing[:3])}，覆盖外部分无法计价")
             # C6 资质匹配需求
             have = {c.replace(" ", "").upper() for c in (cand.get("certifications") or [])}
             for req_line in requirement.get("quality_requirements") or []:
                 m = re.search(r"ISO\s?[-]?\s?\d{2,5}", str(req_line))
                 if m and m.group(0).replace(" ", "").upper() not in have:
-                    add("C6", CheckLevel.WARN, f"需求要求[{m.group(0)}]，供应商资质清单未见对应认证")
+                    _add_check(checks, "C6", CheckLevel.WARN, f"需求要求[{m.group(0)}]，供应商资质清单未见对应认证")
 
             for c in checks:
                 all_checks.append(ComplianceCheck(rule=c["rule"], subject=name, level=c["level"], message=c["message"]))

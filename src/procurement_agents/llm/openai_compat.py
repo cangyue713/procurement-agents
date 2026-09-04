@@ -118,8 +118,8 @@ class OpenAICompatProvider(LLMProvider):
                         data[k] = float(data[k])
                     except (TypeError, ValueError):
                         data[k] = None
-            for key, fallback in (("quality_requirements", []), ("usage_scene", ""),
-                                  ("missing_fields", []), ("notes", "")):
+            for key, default in (("quality_requirements", []), ("usage_scene", ""),
+                                 ("missing_fields", []), ("notes", "")):
                 if not data.get(key):
-                    data[key] = fallback
+                    data[key] = default
         return data

@@ -3,6 +3,58 @@
 本项目版本记录遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.3.0] - 2026-09-06
+
+### Added
+
+- **P2-A 真 HITL（审批独立审计单元）**：
+  - `ApprovalRecord` 升级：`approval_id` 唯一审计主键 + 审批人身份 `approver_id` +
+    附件元数据 `attachments`（filename/content_type/size/**sha256**/note）+ 决策来源
+    `source`（api/auto/resume）；
+  - 审批决策沿 API → service → runner → 审批节点全链路透传身份与附件；
+  - approvals 审计行 **append-only 幂等**（按 approval_id 去重，不再整组覆盖）；
+  - 旧库（v0.2.0 approvals 无附件列）打开时自动 ALTER 升级并回填 `legacy-*` 主键。
+- **P2-B RBAC + 操作审计**：
+  - `access.py`：角色枚举（buyer/approver/compliance/admin/auditor）+ 权限矩阵
+    （procurement.submit/approve/view、masterdata.change、rules.change、audit.view）；
+  - `config/access.yaml` 用户目录；`AuthorizationError`；
+  - `audit_logs` 审计表：who/what/when/resource/result，**拒绝(denied)同样留痕**；
+  - Web 层强制身份头 `X-Actor-Id`（缺失 401 / 未收录或无权限 403），
+    审批人/发起人身份取自已认证主体不可伪造；新增 `GET /audit`。
+- **P2-C 供应商主数据升级（结构化行表）**：
+  - 价目从 `suppliers.csv` 内联文本迁出 → 结构化行表 `knowledge/data/supplier_items.csv`
+    （supplier_item × price，25 行）；`load_suppliers` 聚合生成兼容文本，下游零改动；
+  - `validate_supplier_items` schema 校验（列/单价正数/供应商引用/物品不重复）；
+  - `masterdata.py` 变更审批工具：propose → pending 变更单（old/new sha256 + 快照）→
+    decide（批准：`.bak-<ts>` 备份 + 落盘生效 + 清缓存；拒绝不改文件），全程审计；
+  - `store.masterdata_changes` 变更单表。
+- **P2-D 规则版本化**：
+  - `knowledge/rule_registry.py`：C1~C6 / R1~R6 / ARB-* 规则登记版本元数据 +
+    `ruleset_snapshot`（版本+内容 hash）+ `RULESET_CHANGES` 变更登记；
+  - 合规每条检查行带 `rule_version`，合规产物/仲裁记录/收官报告烙 `ruleset_version`。
+- **P2-E LLM 契约测试**：
+  - `llm/recorder.py`：RecordingProvider / ReplayProvider / 夹具（request+response+meta）；
+  - `llm/contract_samples.py`：8 条契约样本 + 语义锚点 + 结构契约常量；
+  - `tools/record_provider.py`：真实 Provider（DeepSeek/OpenAI 兼容）录制契约夹具；
+  - 离线夹具 `tests/fixtures/llm/parse_requirement.json`（CI 无需 API Key）；
+  - 契约测试发现并修复两个真实缺陷：mock 千分位金额解析（`300,000` → 300）、
+    `openai_compat._normalize` 对畸形 items/缺失键/`None` 描述的清洗与契约补全。
+- **P2-F 批量入口 + case 目录化**：
+  - `ProcurementService.submit_many` / `list_plan`：计划性/批量采购（plan_id 落库，
+    单条失败不阻断整批）；`POST /procurements/batch` + `GET /procurements/plans/{plan_id}`；
+  - `runner.save_report` 产物写入 `<output_dir>/<case_id>/` 目录（case 目录化存储）。
+
+### Changed
+
+- Web 业务端点要求身份头 `X-Actor-Id`（RBAC 强制；`GET /health` 公开）。
+- approvals 落库语义：整组重建 → append-only 幂等同步（审计不可篡改）。
+- `ApproveRequest` 不再接受伪造审批人：审批人/发起人身份由请求主体派生。
+- 主数据：价目唯一来源 = `supplier_items.csv`（suppliers.csv 移除 `price_items` 列）。
+- 规则产物携带版本号（compliance/arbitration/final_report）。
+- 测试 92 → 107 用例，覆盖率 88%；工具版本 ruff 0.16.6 / mypy 2.3.1（与 CI 一致）。
+
+[0.3.0]: https://github.com/cangyue713/procurement-agents/releases/tag/v0.3.0
+
 ## [0.2.0] - 2026-09-04
 
 ### Added

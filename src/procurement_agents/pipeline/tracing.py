@@ -42,6 +42,8 @@ def render_markdown(state: Dict[str, Any]) -> str:
     lines.append("")
     lines.append(f"- 状态：**{state.get('status')}**")
     lines.append(f"- 模型 Provider：{meta.get('provider', '-')}　开始：{meta.get('started_at', '')[:19]}　结束：{meta.get('finished_at', '')[:19]}")
+    if report.get("ruleset_version"):
+        lines.append(f"- 规则集版本：{report.get('ruleset_version')}（P2-D 规则变更可追溯）")
     lines.append("")
     lines.append("## 一、采购结论")
     lines.append("")
@@ -120,7 +122,12 @@ def render_markdown(state: Dict[str, Any]) -> str:
         lines.append("## 六、人工审批记录")
         lines.append("")
         for a in approvals:
-            lines.append(f"- [{a.get('decision')}] {a.get('phase')} by {a.get('approver')}：{a.get('comment')}")
+            who = f"{a.get('approver')}({a.get('approver_id') or '无身份'})"
+            lines.append(f"- [{a.get('decision')}] {a.get('phase')} by {who}：{a.get('comment')}")
+            attach = a.get("attachments") or []
+            for at in attach:
+                lines.append(f"    - 附件：{at.get('filename')}（{at.get('size', 0)}B，"
+                             f"sha256={str(at.get('sha256', ''))[:12]}…）")
         lines.append("")
 
     issues = state.get("issues") or []

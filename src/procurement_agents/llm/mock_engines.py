@@ -50,11 +50,13 @@ def parse_requirement_text(text: str) -> Dict[str, Any]:
     elif any(k in text for k in URGENT_WORDS):
         urgency = UrgencyLevel.URGENT.value
 
-    # 2) 预算（支持：预算 280 万元 / 预算约 2,800,000 元）
+    # 2) 预算（支持：预算 280 万元 / 预算约 2,800,000 元 / 预算 300,000 元 千分位）
     budget: Optional[float] = None
-    m = re.search(r"预算[^\d]{0,8}(\d+(?:\.\d+)?)\s*(万|w|W|千)?", text)
+    # 千分位金额：\d{1,3}(,\d{3})* 识别 "300,000"；再剥离逗号换算
+    m = re.search(r"预算[^\d]{0,8}((?:\d{1,3}(?:,\d{3})*)(?:\.\d+)?)\s*(万|w|W|千)?", text)
     if m:
-        budget = float(m.group(1)) * AMOUNT_WORD.get(m.group(2) or "", 1)
+        amount = float(m.group(1).replace(",", ""))
+        budget = amount * AMOUNT_WORD.get(m.group(2) or "", 1)
 
     # 3) 交付天数
     delivery_days: Optional[int] = None

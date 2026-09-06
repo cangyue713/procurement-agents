@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -152,6 +153,7 @@ class ComplianceCheck(BaseModel):
     subject: str = Field(..., description="检查对象(供应商/条款/预算)")
     level: CheckLevel = CheckLevel.PASS
     message: str = Field("", description="结论说明")
+    rule_version: str = Field("", description="命中规则版本（P2-D 可追溯）")
 
 
 class ComplianceArtifact(BaseModel):
@@ -163,6 +165,7 @@ class ComplianceArtifact(BaseModel):
     approved_supplier_ids: List[str] = Field(default_factory=list, description="合规放行的供应商 id")
     conditions: List[str] = Field(default_factory=list, description="成交附带条件")
     conclusion: str = Field("", description="总体合规结论")
+    ruleset_version: str = Field("", description="所用合规规则集版本（P2-D）")
     audited_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
 
 
@@ -204,19 +207,41 @@ class ArbitrationRecord(BaseModel):
     quality_score: int = Field(100, ge=0, le=100, description="该阶段质量分(0-100)")
     checks: List[ArbitrationCheck] = Field(default_factory=list)
     summary: str = Field("", description="裁决摘要")
+    ruleset_version: str = Field("", description="所用仲裁规则集版本（P2-D 可追溯）")
     recorded_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
 
     def is_ok(self) -> bool:
         return self.verdict == VerdictAction.PROCEED
 
 
-class ApprovalRecord(BaseModel):
-    """人工审批记录（人审点）。"""
+class ApprovalAttachment(BaseModel):
+    """审批附件元数据（文件本体存对象存储/文件系统，DB 只留元数据与哈希用于审计）。
 
+    附件完整性由 sha256 保证：审计核对时重新计算文件哈希与库内值比对。
+    """
+
+    filename: str = Field(..., description="附件文件名")
+    content_type: str = Field("", description="MIME 类型")
+    size: int = Field(0, ge=0, description="字节数")
+    sha256: str = Field("", description="文件内容哈希（防篡改核对）")
+    note: str = Field("", description="附件说明（可选）")
+
+
+class ApprovalRecord(BaseModel):
+    """人工审批记录（人审点；P2 起为独立审计单元）。
+
+    审计要素：审批人身份（approver_id+approver）、决策时间（recorded_at）、
+    意见（comment）、附件元数据（attachments，含 sha256）、决策来源（source）。
+    """
+
+    approval_id: str = Field(default_factory=lambda: uuid.uuid4().hex, description="审批记录唯一 ID（审计主键）")
     phase: PhaseName
     decision: str = Field("auto_approved", description="approved / rejected / auto_approved")
-    approver: str = Field("系统(自动审批配置)", description="审批人")
+    approver_id: str = Field("", description="审批人账号/工号（RBAC 身份）")
+    approver: str = Field("系统(自动审批配置)", description="审批人显示名")
     comment: str = Field("", description="意见")
+    attachments: List[ApprovalAttachment] = Field(default_factory=list, description="附件元数据（含 sha256）")
+    source: str = Field("api", description="决策来源：api(审批接口)/auto(自动放行)/resume(断点续批)")
     recorded_at: str = Field(default_factory=lambda: datetime.now().isoformat(timespec="seconds"))
 
 

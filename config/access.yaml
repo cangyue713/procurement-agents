@@ -1,0 +1,9 @@
+# P2-B RBAC 用户目录：user_id -> 显示名 + 角色
+# 角色取值见 src/procurement_agents/access.py Role 枚举
+# （buyer 采购员 / approver 审批人 / compliance 合规岗 / admin 管理员 / auditor 审计）
+users:
+  zhangsan: { name: 张三(采购), role: buyer }
+  wangjl:   { name: 王经理, role: approver }
+  liz:      { name: 李总, role: admin }
+  hg:       { name: 黄工(合规), role: compliance }
+  chensh:   { name: 老陈(审计), role: auditor }

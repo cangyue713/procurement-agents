@@ -21,6 +21,7 @@ from procurement_agents.config import RuleConfig
 from procurement_agents.domain.enums import CheckLevel, PhaseName, SupplierRiskLevel
 from procurement_agents.domain.models import ComplianceArtifact, ComplianceCheck
 from procurement_agents.domain.money import fmt_money, to_decimal
+from procurement_agents.knowledge.rule_registry import RULESET_VERSION, rule_spec
 from procurement_agents.knowledge.supplier_lib import blacklist_ids, blacklist_names, catalog_lines
 
 
@@ -103,7 +104,10 @@ class ComplianceAgent(BaseAgent):
                     _add_check(checks, "C6", CheckLevel.WARN, f"需求要求[{m.group(0)}]，供应商资质清单未见对应认证")
 
             for c in checks:
-                all_checks.append(ComplianceCheck(rule=c["rule"], subject=name, level=c["level"], message=c["message"]))
+                all_checks.append(ComplianceCheck(
+                    rule=c["rule"], subject=name, level=c["level"], message=c["message"],
+                    rule_version=rule_spec(c["rule"]).get("version", RULESET_VERSION),
+                ))
             if eligible:
                 approved.append(sid)
                 warns = [c["message"] for c in checks if c["level"] == CheckLevel.WARN.value]
@@ -140,4 +144,5 @@ class ComplianceAgent(BaseAgent):
             approved_supplier_ids=approved,
             conditions=conditions,
             conclusion=conclusion,
+            ruleset_version=RULESET_VERSION,
         )

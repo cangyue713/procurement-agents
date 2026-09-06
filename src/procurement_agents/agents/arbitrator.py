@@ -21,6 +21,7 @@ from procurement_agents.agents.base import BaseAgent, require_keys
 from procurement_agents.domain.enums import CheckLevel, PhaseName, VerdictAction
 from procurement_agents.domain.models import ArbitrationCheck, ArbitrationRecord
 from procurement_agents.domain.money import fmt_money, to_decimal, to_decimal_or_zero
+from procurement_agents.knowledge.rule_registry import RULESET_VERSION
 from procurement_agents.knowledge.supplier_lib import (
     match_price,
     parse_price_items,
@@ -76,6 +77,7 @@ class ArbitratorAgent(BaseAgent):
                 quality_score=100,
                 checks=[],
                 summary=f"{phase_value}：无可配置的仲裁规则，默认放行",
+                ruleset_version=RULESET_VERSION,
             )
 
         r = _Reporter()
@@ -91,7 +93,7 @@ class ArbitratorAgent(BaseAgent):
             verdict, summary = VerdictAction.PROCEED, f"放行：质量分 {quality}，{len(r.checks)} 项检查全部通过"
         return ArbitrationRecord(
             phase=PhaseName(phase_value), verdict=verdict, quality_score=quality,
-            checks=r.checks, summary=summary,
+            checks=r.checks, summary=summary, ruleset_version=RULESET_VERSION,
         )
 
 

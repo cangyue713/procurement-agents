@@ -1,9 +1,16 @@
 """供应商知识库：主数据装载、评分与短名单生成。
 
-数据资产：
-  * knowledge/data/suppliers.csv —— 供应商主数据（表头字段即列名；
-    多值字段 aliases/categories/certifications/risk_flags 以 | 分隔，UTF-8 编码，可容忍 BOM）
+数据资产（P2-C 起价目结构化）：
+  * knowledge/data/suppliers.csv —— 供应商主数据（企业级信息，含交期/质保/付款条款；
+    表头字段即列名；多值字段 aliases/categories/certifications/risk_flags 以 | 分隔，
+    UTF-8 编码，可容忍 BOM）
+  * knowledge/data/supplier_items.csv —— 结构化价目行表 supplier_item × price
+    （列：supplier_id,item_description,unit_price；每行一个可售物品条目；
+    schema 校验与导入/变更审批见 procurement_agents.masterdata）
   * knowledge/data/blacklist.json —— 禁入名单
+
+向下兼容契约：load_suppliers() 返回的供应商 dict 仍含 price_items 文本字段
+（`物品=单价|…`，由行表聚合生成），比价/合规/仲裁的字符串接口零改动。
 评分透明可审计：绩效 45% + 资质 25% + 成熟度 15% + 注册资金 15% - 风险扣分。
 
 金额精度（P1.1）：价目/计价一律 Decimal（解析即转 Decimal，不做 float 算术）。
@@ -31,6 +38,7 @@ from procurement_agents.domain.money import CENT, to_decimal
 logger = logging.getLogger(__name__)
 DATA_DIR = Path(__file__).resolve().parent / "data"
 SUPPLIERS_CSV = DATA_DIR / "suppliers.csv"
+SUPPLIER_ITEMS_CSV = DATA_DIR / "supplier_items.csv"
 
 # 从需求句子里提取的认证编号（如 "ISO9001"）
 _CERT_PATTERN = re.compile(r"ISO\s?[-]?\s?\d{2,5}|ISO9001|ISO14001|ISO27001|ISO45001|CMMI\d|CNAS|CMA")
@@ -184,15 +192,98 @@ def catalog_lines(
 
 
 @lru_cache(maxsize=2)
-def load_suppliers() -> List[Dict[str, Any]]:
-    """从 suppliers.csv 加载全部供应商主数据（Agent 读取数据的入口）。"""
+def load_supplier_items() -> List[Dict[str, Any]]:
+    """加载结构化价目行表 supplier_item × price（P2-C 主数据源）。
+
+    每行: {supplier_id, item_description, unit_price(Decimal 字符串)}。
+    行表文件缺失（旧仓库未迁移）时返回空列表 —— 由 load_suppliers 回退
+    suppliers.csv 内的内联 price_items 文本。
+    """
+    if not SUPPLIER_ITEMS_CSV.exists():
+        return []
+    rows: List[Dict[str, Any]] = []
+    with open(SUPPLIER_ITEMS_CSV, "r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames:
+            return []
+        for raw in reader:
+            if raw is None or not _clean(raw.get("supplier_id")):
+                continue
+            rows.append({
+                "supplier_id": _clean(raw.get("supplier_id")),
+                "item_description": _clean(raw.get("item_description")),
+                "unit_price": _clean(raw.get("unit_price")),
+            })
+    return rows
+
+
+def supplier_items_by_id() -> Dict[str, List[Dict[str, Any]]]:
+    """supplier_id -> 该供应商的行表条目列表（多次调用直接读缓存行表）。"""
+    by_id: Dict[str, List[Dict[str, Any]]] = {}
+    for row in load_supplier_items():
+        by_id.setdefault(row["supplier_id"], []).append(row)
+    return by_id
+
+
+def _items_to_price_items_text(supplier_id: str) -> str:
+    """把某供应商的行表条目聚合回 `物品=单价|…` 文本（下游字符串接口兼容）。"""
+    parts: List[str] = []
+    for row in supplier_items_by_id().get(supplier_id, []):
+        price = to_decimal(row.get("unit_price"))
+        desc = row.get("item_description", "").strip()
+        if not desc or price is None:
+            continue
+        parts.append(f"{desc}={price}")
+    return "|".join(parts)
+
+
+def validate_supplier_items() -> List[str]:
+    """价目行表 schema 校验，返回错误列表（空 = 通过）。
+
+    校验项：
+      * 表头/行可解析；
+      * 物品描述非空；
+      * 单价为合法正数（Decimal）；
+      * 引用供应商存在于 suppliers.csv（含黑名单也须在主库登记）；
+      * 同一供应商内物品描述不重复（防止价目歧义）。
+    """
+    errors: List[str] = []
+    rows = load_supplier_items()
+    if not rows and SUPPLIER_ITEMS_CSV.exists():
+        errors.append(f"行表 {SUPPLIER_ITEMS_CSV.name} 无有效行")
+        return errors
+    if not SUPPLIER_ITEMS_CSV.exists():
+        return errors  # 未迁移仓库：交由内联文本模式
+
+    known = {s["id"] for s in load_suppliers_raw()}
+    seen: Dict[str, set] = {}
+    for row in rows:
+        sid = row["supplier_id"]
+        desc = row["item_description"]
+        price = to_decimal(row.get("unit_price"))
+        if sid not in known:
+            errors.append(f"行[{sid}/{desc}] 引用不存在的供应商 id: {sid}")
+        if not desc:
+            errors.append(f"行[{sid}] 物品描述为空")
+        if price is None or price <= 0:
+            errors.append(f"行[{sid}/{desc}] 单价非法: {row.get('unit_price')!r}")
+        seen.setdefault(sid, set()).add(desc)
+    for sid, descs in seen.items():
+        dup = [d for d in descs if sum(1 for r in rows
+                                       if r["supplier_id"] == sid and r["item_description"] == d) > 1]
+        if dup:
+            errors.append(f"供应商 {sid} 价目重复物品: {'、'.join(sorted(dup))}")
+    return errors
+
+
+def load_suppliers_raw() -> List[Dict[str, Any]]:
+    """仅读 suppliers.csv 企业级信息（不含价目行表聚合），供校验/工具使用。"""
     if not SUPPLIERS_CSV.exists():
         raise FileNotFoundError(
             f"供应商主数据缺失: {SUPPLIERS_CSV}。请按表头列名提供 UTF-8 CSV，"
             "多值字段(aliases/categories/certifications/risk_flags)用 | 分隔。"
         )
     rows: List[Dict[str, Any]] = []
-    # utf-8-sig：容忍 Excel 另存 CSV 时的 BOM 头
     with open(SUPPLIERS_CSV, "r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         if not reader.fieldnames:
@@ -204,6 +295,33 @@ def load_suppliers() -> List[Dict[str, Any]]:
     if not rows:
         raise ValueError(f"suppliers.csv 未解析到任何供应商: {SUPPLIERS_CSV}")
     return rows
+
+
+@lru_cache(maxsize=2)
+def load_suppliers() -> List[Dict[str, Any]]:
+    """从 suppliers.csv + supplier_items.csv 加载全部供应商主数据。
+
+    P2-C：价目以结构化行表为准 —— 行表存在时以行表聚合生成 price_items 文本；
+    未迁移行表的仓库回退 suppliers.csv 内联文本（渐进兼容）。
+    Agent 读取数据的唯一入口；改主数据（行表/企业信息）后请调用 clear_master_cache()。
+    """
+    suppliers = load_suppliers_raw()
+    if not SUPPLIER_ITEMS_CSV.exists():
+        return suppliers  # 旧仓库：仍读 suppliers.csv 的 price_items 列
+    items_by = supplier_items_by_id()
+    for s in suppliers:
+        sid = s["id"]
+        if sid in items_by:
+            s["price_items"] = _items_to_price_items_text(sid)
+        # 行表未收录该供应商：保留企业信息，价目为空（比价/合规会提示补录）
+    return suppliers
+
+
+def clear_master_cache() -> None:
+    """主数据变更生效后清空装载缓存（导入/变更审批工具调用）。"""
+    for fn in (load_suppliers, load_supplier_items, supplier_registry,
+               supplier_by_name, load_blacklist, blacklist_ids, blacklist_names):
+        fn.cache_clear()
 
 
 def _load_json(name: str) -> Dict[str, Any]:

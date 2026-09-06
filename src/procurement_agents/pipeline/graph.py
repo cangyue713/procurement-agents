@@ -169,14 +169,16 @@ def _router_after_arbitration(state: Dict[str, Any]) -> str:
 
 
 def _approval_node(state: Dict[str, Any]) -> Dict[str, Any]:
-    """人工审批节点（P1：真正挂起等待决策）。
+    """人工审批节点（P1 真挂起；P2 审计升级：决策携带审批人身份/附件/来源）。
 
     语义：
       * meta.auto_approve=True  -> 自动放行留痕（不中断，全自动跑完）；
       * meta.auto_approve=False -> 调用 interrupt() 挂起（status=needs_input），
-        外部以 Command(resume={'approved': bool, 'approver': str, 'comment': str})
-        续跑：approved 放行 / rejected 阻断留痕。
-    挂起点信息以 interrupt payload 呈现（供审批方了解"审什么"）。
+        外部以 Command(resume={'approved': bool, 'approver': str, 'comment': str,
+                                'approver_id': str, 'attachments': [...]}) 续跑：
+        approved 放行 / rejected 阻断留痕。
+    每条审批记录（ApprovalRecord）带独立 approval_id、审批人身份（approver_id）、
+    附件元数据（含 sha256）与决策来源（source），构成可独立审计单元。
     """
     from langgraph.types import interrupt  # 惰性导入：仅在审批分支使用
 
@@ -189,9 +191,15 @@ def _approval_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
     if auto:
         approve = True
-        approver = "系统(自动审批配置)"
-        comment = f"仲裁挂起项自动放行：{latest.get('summary', '')}"
-        decision_kind = "auto_approved"
+        record = ApprovalRecord(
+            phase=PhaseName(phase),
+            decision="auto_approved",
+            approver_id="",
+            approver="系统(自动审批配置)",
+            comment=f"仲裁挂起项自动放行：{latest.get('summary', '')}",
+            attachments=[],
+            source="auto",
+        )
     else:
         # 挂起等待人工决策：第一次执行在此暂停并返回 needs_input 状态；
         # 续跑时 interrupt() 返回 resume 传入的决策 dict。
@@ -202,16 +210,17 @@ def _approval_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "case_id": state.get("case_id"),
         }) or {}
         approve = bool(decision.get("approved", False))
-        approver = str(decision.get("approver") or "人工(审批接口)")
-        comment = str(decision.get("comment") or ("人工审批通过" if approve else "人工审批拒绝"))
-        decision_kind = "approved" if approve else "rejected"
+        record = ApprovalRecord(
+            phase=PhaseName(phase),
+            decision="approved" if approve else "rejected",
+            approver_id=str(decision.get("approver_id") or ""),
+            approver=str(decision.get("approver") or "人工(审批接口)"),
+            comment=str(decision.get("comment")
+                        or ("人工审批通过" if approve else "人工审批拒绝")),
+            attachments=decision.get("attachments") or [],
+            source=str(decision.get("source") or "api"),
+        )
 
-    record = ApprovalRecord(
-        phase=PhaseName(phase),
-        decision=decision_kind,
-        approver=approver,
-        comment=comment,
-    )
     updates: Dict[str, Any] = {
         "approvals": [*(state.get("approvals") or []), record.model_dump(mode="json")],
     }
@@ -282,6 +291,13 @@ def _finish_node(state: Dict[str, Any]) -> Dict[str, Any]:
     report = dict(state.get("final_report") or {})
     report["status"] = status
     report["finished_at"] = datetime.now().isoformat(timespec="seconds")
+    # P2-D：报告烙上本次运行所用规则集版本（取自仲裁/合规产物，可追溯）
+    versions = [r.get("ruleset_version") for r in arb if r.get("ruleset_version")]
+    compliance_ver = (state.get("compliance") or {}).get("ruleset_version")
+    if compliance_ver:
+        versions.append(compliance_ver)
+    if versions:
+        report["ruleset_version"] = versions[-1]
     if blocked:
         blockers = [r.get("summary") for r in arb if r.get("verdict") == VerdictAction.BLOCK.value]
         report["blockers"] = blockers[:3]

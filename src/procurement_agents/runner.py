@@ -91,13 +91,18 @@ class ProcurementRun:
         return render_markdown(self.state)
 
     def save_report(self, output_dir: str | Path | None = None) -> Path:
-        """保存 Markdown 报告与 JSON trace，返回报告路径。"""
-        out_dir = Path(output_dir) if output_dir else Path(self.config.workflow.output_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        ts = self.state.get("meta", {}).get("finished_at", "")[:19].replace(":", "").replace("-", "").replace(" ", "-")
-        md_path = out_dir / f"report_{self.case_id}_{ts or 'now'}.md"
+        """保存该 case 的报告与追踪到『case 目录』（P2-F 目录化存储）。
+
+        产物路径：<output_dir>/<case_id>/report.md 与 trace_*.json ——
+        每个 case 的产物相互隔离，便于按 case 归档/批量计划汇总。
+        返回 Markdown 报告路径。
+        """
+        base = Path(output_dir) if output_dir else Path(self.config.workflow.output_dir)
+        case_dir = base / str(self.case_id or "case")
+        case_dir.mkdir(parents=True, exist_ok=True)
+        md_path = case_dir / "report.md"
         md_path.write_text(self.markdown_report(), encoding="utf-8")
-        self.trace_path = save_trace(self.state, out_dir)
+        self.trace_path = save_trace(self.state, case_dir)
         return md_path
 
 
@@ -222,15 +227,27 @@ class ProcurementRunner:
         approved: bool,
         approver: str = "人工(审批接口)",
         comment: str = "",
+        approver_id: str = "",
+        attachments: Optional[List[Dict[str, Any]]] = None,
+        source: str = "api",
     ) -> ProcurementRun:
         """为挂起中的 case 提供人工决策并续跑（含多次连续挂起）。
 
         基于同一 thread_id 的 checkpointer 从断点恢复：
         首次 invoke 带 Command(resume=...) 将决策交给 interrupt() 处的审批节点。
+        P2：决策携带审批人身份（approver_id）与附件元数据（attachments，含 sha256），
+        由审批节点写入 ApprovalRecord 审计单元。
         """
         from langgraph.types import Command
 
-        decision = {"approved": approved, "approver": approver, "comment": comment}
+        decision: Dict[str, Any] = {
+            "approved": approved,
+            "approver": approver,
+            "comment": comment,
+            "approver_id": approver_id,
+            "attachments": attachments or [],
+            "source": source,
+        }
         config = self._thread_config(case_id)
         with self._lock:
             out = self.app.invoke(Command(resume=decision), config=config)

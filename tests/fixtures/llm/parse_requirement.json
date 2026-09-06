@@ -1,0 +1,288 @@
+{
+  "meta": {
+    "provider": "mock",
+    "model": "",
+    "recorded_at": "2026-09-06T15:14:28",
+    "count": 8
+  },
+  "records": [
+    {
+      "request": {
+        "task": "parse_requirement",
+        "text": "紧急采购 10 台工业级交换机与 2 台 2U 机架式服务器，预算 280 万，25 天内交付，需通过 ISO9001 认证，含 3 台会议平板。",
+        "hints": {},
+        "expect_schema": ""
+      },
+      "response": {
+        "data": {
+          "title": "工业级交换机与  2U 机架式服务器，预算 280 万，…",
+          "category": "IT设备",
+          "urgency": "紧急",
+          "items": [
+            {
+              "description": "紧急采购 工业级交换机与",
+              "quantity": 10.0,
+              "uom": "台"
+            },
+            {
+              "description": "工业级交换机与 2U 机架式服务器 预算 280 万 25 天内交付 需通过 ISO9001 认证 含",
+              "quantity": 2.0,
+              "uom": "台"
+            },
+            {
+              "description": "2U 机架式服务器 预算 280 万 25 天内交付 需通过 ISO9001 认证 含 会议平板",
+              "quantity": 3.0,
+              "uom": "台"
+            }
+          ],
+          "budget_amount": 2800000.0,
+          "delivery_days": 25,
+          "quality_requirements": [],
+          "usage_scene": "",
+          "missing_fields": [],
+          "notes": "紧急采购 10 台工业级交换机与 2 台 2U 机架式服务器，预算 280 万，25 天内交付，需通过 ISO9001 认证，含 3 台会议平板。"
+        },
+        "provider": "mock",
+        "raw_text": "",
+        "ok": true,
+        "error": ""
+      }
+    },
+    {
+      "request": {
+        "task": "parse_requirement",
+        "text": "采购 10 台工业级交换机，预算 20 万元，要求 15 天内交付。",
+        "hints": {},
+        "expect_schema": ""
+      },
+      "response": {
+        "data": {
+          "title": "工业级交换机，预算 20 万元，要求 15 天内交付采购",
+          "category": "IT设备",
+          "urgency": "一般",
+          "items": [
+            {
+              "description": "工业级交换机 预算 20 万元 要求 15 天内交付",
+              "quantity": 10.0,
+              "uom": "台"
+            }
+          ],
+          "budget_amount": 200000.0,
+          "delivery_days": 15,
+          "quality_requirements": [],
+          "usage_scene": "",
+          "missing_fields": [],
+          "notes": "采购 10 台工业级交换机，预算 20 万元，要求 15 天内交付。"
+        },
+        "provider": "mock",
+        "raw_text": "",
+        "ok": true,
+        "error": ""
+      }
+    },
+    {
+      "request": {
+        "task": "parse_requirement",
+        "text": "采购 5 台激光打印机。",
+        "hints": {},
+        "expect_schema": ""
+      },
+      "response": {
+        "data": {
+          "title": "激光打印机采购",
+          "category": "办公设备",
+          "urgency": "一般",
+          "items": [
+            {
+              "description": "激光打印机",
+              "quantity": 5.0,
+              "uom": "台"
+            }
+          ],
+          "budget_amount": null,
+          "delivery_days": null,
+          "quality_requirements": [],
+          "usage_scene": "",
+          "missing_fields": [
+            "预算金额",
+            "交付期"
+          ],
+          "notes": "采购 5 台激光打印机。"
+        },
+        "provider": "mock",
+        "raw_text": "",
+        "ok": true,
+        "error": ""
+      }
+    },
+    {
+      "request": {
+        "task": "parse_requirement",
+        "text": "采购 20 把人体工学办公椅和 6 台会议平板，预算 8 万元，希望 10 天到货，品牌不限。",
+        "hints": {},
+        "expect_schema": ""
+      },
+      "response": {
+        "data": {
+          "title": "人体工学办公椅和 会议平板，预算 8 万元，希望 10 …",
+          "category": "办公设备",
+          "urgency": "一般",
+          "items": [
+            {
+              "description": "人体工学办公椅和",
+              "quantity": 20.0,
+              "uom": "把"
+            },
+            {
+              "description": "人体工学办公椅和 会议平板 预算 8 万元 希望 10 天到货 品牌不限",
+              "quantity": 6.0,
+              "uom": "台"
+            }
+          ],
+          "budget_amount": 80000.0,
+          "delivery_days": 10,
+          "quality_requirements": [],
+          "usage_scene": "",
+          "missing_fields": [],
+          "notes": "采购 20 把人体工学办公椅和 6 台会议平板，预算 8 万元，希望 10 天到货，品牌不限。"
+        },
+        "provider": "mock",
+        "raw_text": "",
+        "ok": true,
+        "error": ""
+      }
+    },
+    {
+      "request": {
+        "task": "parse_requirement",
+        "text": "特急采购指定品牌华智的原厂专用变频器 3 台，独家供应，越快越好，预算 50 万。",
+        "hints": {},
+        "expect_schema": ""
+      },
+      "response": {
+        "data": {
+          "title": "特急采购指定品牌华智的原厂专用变频器 ，独家供应，越快越…",
+          "category": "通用物资",
+          "urgency": "特急",
+          "items": [
+            {
+              "description": "特急采购指定品牌华智的原厂专用变频器 独家供应 越快越好 预算 50 万",
+              "quantity": 3.0,
+              "uom": "台"
+            }
+          ],
+          "budget_amount": 500000.0,
+          "delivery_days": null,
+          "quality_requirements": [],
+          "usage_scene": "",
+          "missing_fields": [
+            "交付期"
+          ],
+          "notes": "特急采购指定品牌华智的原厂专用变频器 3 台，独家供应，越快越好，预算 50 万。"
+        },
+        "provider": "mock",
+        "raw_text": "",
+        "ok": true,
+        "error": ""
+      }
+    },
+    {
+      "request": {
+        "task": "parse_requirement",
+        "text": "采购 5 吨铝合金型材(6063)，预算 300,000 元，20 天内交付。",
+        "hints": {},
+        "expect_schema": ""
+      },
+      "response": {
+        "data": {
+          "title": "铝合金型材采购",
+          "category": "通用物资",
+          "urgency": "一般",
+          "items": [
+            {
+              "description": "铝合金型材(6063) 预算 300 000 元 20 天内交付",
+              "quantity": 5.0,
+              "uom": "吨"
+            }
+          ],
+          "budget_amount": 300000.0,
+          "delivery_days": 20,
+          "quality_requirements": [],
+          "usage_scene": "",
+          "missing_fields": [],
+          "notes": "采购 5 吨铝合金型材(6063)，预算 300,000 元，20 天内交付。"
+        },
+        "provider": "mock",
+        "raw_text": "",
+        "ok": true,
+        "error": ""
+      }
+    },
+    {
+      "request": {
+        "task": "parse_requirement",
+        "text": "我们想买 5 台空调，大概 3 万块，能快点送货吗，最好带安装。",
+        "hints": {},
+        "expect_schema": ""
+      },
+      "response": {
+        "data": {
+          "title": "我们想买 空调，大概 3 万块，能快点送货吗，最好带安装…",
+          "category": "通用物资",
+          "urgency": "一般",
+          "items": [
+            {
+              "description": "我们想买 空调 大概 3 万块 能快点送货吗 最好带安装",
+              "quantity": 5.0,
+              "uom": "台"
+            }
+          ],
+          "budget_amount": null,
+          "delivery_days": null,
+          "quality_requirements": [],
+          "usage_scene": "",
+          "missing_fields": [
+            "预算金额",
+            "交付期"
+          ],
+          "notes": "我们想买 5 台空调，大概 3 万块，能快点送货吗，最好带安装。"
+        },
+        "provider": "mock",
+        "raw_text": "",
+        "ok": true,
+        "error": ""
+      }
+    },
+    {
+      "request": {
+        "task": "parse_requirement",
+        "text": "需要第三方检测认证服务 8 项，30 天内完成并出具报告。",
+        "hints": {},
+        "expect_schema": ""
+      },
+      "response": {
+        "data": {
+          "title": "需要第三方检测认证服务 8 项，30 天内完成并出具报告…",
+          "category": "专业服务",
+          "urgency": "一般",
+          "items": [],
+          "budget_amount": null,
+          "delivery_days": 30,
+          "quality_requirements": [
+            "需要第三方检测认证服务 8 项，30 天内完成并出具报告"
+          ],
+          "usage_scene": "",
+          "missing_fields": [
+            "明细行",
+            "预算金额"
+          ],
+          "notes": "需要第三方检测认证服务 8 项，30 天内完成并出具报告。"
+        },
+        "provider": "mock",
+        "raw_text": "",
+        "ok": true,
+        "error": ""
+      }
+    }
+  ]
+}

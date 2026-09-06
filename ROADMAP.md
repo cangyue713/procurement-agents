@@ -42,20 +42,21 @@
 
 ---
 
-## 🟠 P2 组织级基建 —— 目标 `v0.3.0`
+## ✅ P2 组织级基建 —— 完成（tag `v0.3.0`）
 
 **目标**：审批真实可信、数据资产可治理——达到企业内控/审计口径。
 
-| 任务 | 内容 |
-|---|---|
-| 真 HITL | 审批记录独立落库（审批人身份/时间/意见/附件）；决策器改为服务端接口，替换进程级注册表 `HUMAN_DECIDERS` |
-| 权限与审计 | RBAC（谁可触发采购/审批/改主数据）；操作审计日志（who/what/when），对齐财务/法务合规 |
-| 供应商主数据升级 | `price_items` 内联文本（`物品=单价\|…`）→ 结构化行表 `supplier_item × price`；schema 校验 + 导入/变更审批工具 |
-| 规则版本化 | 合规规则 C1~C6 与仲裁规则按版本管理，规则变更可追溯可回滚 |
-| LLM 契约测试 | 对真实 Provider 做录制回放/契约测试，归一化逻辑不因模型更新回退 |
-| 批量入口 | case 目录化存储、计划性/批量采购入口 |
+| 任务 | 内容 | 状态 |
+|---|---|---|
+| 真 HITL | 审批记录独立落库（`approval_id` + 审批人身份/时间/意见/附件含 sha256/决策来源）；决策走服务端接口，append-only 审计不可篡改；旧库自动迁移 | ✅ |
+| 权限与审计 | RBAC（`access.py` 角色×权限矩阵 + `config/access.yaml` 用户目录；谁可触发采购/审批/改主数据）；`audit_logs` 操作审计 who/what/when，拒绝同样留痕；Web 强制 `X-Actor-Id`（401/403）+ `GET /audit` | ✅ |
+| 供应商主数据升级 | 价目 → 结构化行表 `supplier_items.csv`（supplier_item × price）；`validate_supplier_items` schema 校验；`MasterDataService` 导入/变更审批（备份回滚 + sha256 + 全程审计） | ✅ |
+| 规则版本化 | `rule_registry.py`：合规 C1~C6/策略 R1~R6/仲裁 ARB-* 规则登记版本；产物（合规检查行/仲裁记录/收官报告）烙 `ruleset_version`，变更登记 `RULESET_CHANGES` 可追溯回滚 | ✅ |
+| LLM 契约测试 | `llm/recorder.py` 录制/回放 + `tools/record_provider.py` 真实 Provider 录制夹具 + 离线契约测试（结构契约/语义锚点/归一化稳定性）；修复千分位金额与 normalize 缺陷 | ✅ |
+| 批量入口 | `service.submit_many/list_plan`（计划性/批量采购，plan_id 落库）+ `POST /procurements/batch`；`runner.save_report` case 目录化存储 `<out>/<case_id>/` | ✅ |
 
-**工作量约 1~2 周。简历价值**：从「演示系统」迈向「内控系统」，可写「对接审批流 / RBAC / 主数据治理」。
+**完成标志**：107 用例全绿 / coverage 88% / ruff 0.16.6 + mypy 2.3.1 零错误。
+**简历价值**：从「演示系统」迈向「内控系统」，可写「对接审批流 / RBAC / 主数据治理」。
 
 ---
 
@@ -90,8 +91,9 @@
 
 ```
 已完成 → P1（v0.2.0：领域硬伤 / FastAPI 服务化 / SqliteSaver / 并发隔离 / 收口）
-现在   → P2（审批数据化 → RBAC → 主数据结构化）
-之后   → P3（可观测性 + 系统集成）
+已完成 → P2（v0.3.0：真 HITL 审计 / RBAC+操作审计 / 主数据行表化+变更审批 /
+              规则版本化 / LLM 契约测试 / 批量入口+case 目录化）
+现在   → P3（可观测性 + 系统集成；也可先做 P4 加分项：evals / 模型路由）
 ```
 
 ## 每阶段固定动作

@@ -103,17 +103,38 @@ class OpenAICompatProvider(LLMProvider):
             items = data.get("items")
             if not isinstance(items, list):
                 items = []
-            data["items"] = [
-                {
-                    "description": str(it.get("description", "")),
-                    "quantity": float(it.get("quantity", 0)),
-                    "uom": str(it.get("uom", "台")),
-                }
-                for it in items
-                if isinstance(it, dict)
-            ]
+            cleaned_items = []
+            missing = list(data.get("missing_fields") or [])
+            for it in items:
+                if not isinstance(it, dict):
+                    continue
+                desc = str(it.get("description") or "").strip()
+                try:
+                    qty = float(it.get("quantity", 0))
+                except (TypeError, ValueError):
+                    qty = 0.0
+                if not desc:
+                    if "物品描述缺失" not in missing:
+                        missing.append("物品描述缺失")
+                    continue
+                if qty <= 0:
+                    # 数量非法/缺失的行丢弃并提示，避免污染下游(RequirementItem gt=0)
+                    if f"{desc} 数量缺失或非法" not in missing:
+                        missing.append(f"{desc} 数量缺失或非法")
+                    continue
+                cleaned_items.append({
+                    "description": desc,
+                    "quantity": qty,
+                    "uom": str(it.get("uom") or "台"),
+                })
+            data["items"] = cleaned_items
+            if missing:
+                data["missing_fields"] = missing
+            # 数字键：缺失补 None（保持契约键齐全）；非数字/非法串回退 None
             for k in ("budget_amount", "delivery_days"):
-                if k in data and data[k] is not None:
+                if k not in data:
+                    data[k] = None
+                elif data[k] is not None:
                     try:
                         data[k] = float(data[k])
                     except (TypeError, ValueError):
